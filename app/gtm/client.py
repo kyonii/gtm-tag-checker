@@ -20,16 +20,22 @@ class GTMClient:
             async with httpx.AsyncClient() as client:
                 r = await client.get(f"{_BASE}/{path}", headers=self._headers)
         r.raise_for_status()
-        return r.json()  # type: ignore[no-any-return]
+        return r.json()
 
     async def list_containers(self) -> list[GTMContainerSummary]:
         data = await self._get("accounts")
         summaries: list[GTMContainerSummary] = []
         for account in data.get("account", []):
             aid = account["accountId"]
+            aname = account.get("name", aid)
             for c in (await self._get(f"accounts/{aid}/containers")).get("container", []):
-                summaries.append(GTMContainerSummary(account_id=aid, container_id=c["containerId"],
-                                                      name=c["name"], public_id=c.get("publicId", "")))
+                summaries.append(GTMContainerSummary(
+                    account_id=aid,
+                    account_name=aname,
+                    container_id=c["containerId"],
+                    name=c["name"],
+                    public_id=c.get("publicId", ""),
+                ))
         return summaries
 
     async def get_container(self, account_id: str, container_id: str) -> GTMContainer:
