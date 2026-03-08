@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}GTM Tag Checker{% endblock %}</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg:#0a0a0f; --surface:#111118; --surface2:#1a1a24; --border:#2a2a3a; --accent:#4f6ef7; --accent-dim:#2a3a8a; --green:#22d47a; --red:#f74f4f; --yellow:#f7c34f; --blue:#4fb8f7; --text:#e8e8f0; --text-dim:#8888aa; --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif; }
+    *{box-sizing:border-box;margin:0;padding:0} body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;line-height:1.6}
+    a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+    nav{display:flex;align-items:center;justify-content:space-between;padding:0 2rem;height:56px;border-bottom:1px solid var(--border);background:var(--surface)}
+    .nav-brand{font-family:var(--mono);font-size:.95rem;font-weight:600;color:var(--text);letter-spacing:.05em} .nav-brand span{color:var(--accent)}
+    .nav-right{display:flex;align-items:center;gap:1rem} .nav-avatar{width:30px;height:30px;border-radius:50%;border:1px solid var(--border)}
+    .nav-email{font-size:.8rem;color:var(--text-dim)}
+    .btn-logout{font-size:.8rem;color:var(--text-dim);border:1px solid var(--border);padding:.25rem .75rem;border-radius:4px;background:none;cursor:pointer;transition:border-color .2s,color .2s}
+    .btn-logout:hover{border-color:var(--accent);color:var(--text);text-decoration:none}
+    main{max-width:900px;margin:0 auto;padding:2.5rem 1.5rem}
+    .tag{display:inline-block;font-family:var(--mono);font-size:.72rem;padding:.15rem .5rem;border-radius:3px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+    .tag-error{background:rgba(247,79,79,.15);color:var(--red);border:1px solid rgba(247,79,79,.3)}
+    .tag-warning{background:rgba(247,195,79,.12);color:var(--yellow);border:1px solid rgba(247,195,79,.3)}
+    .tag-pass{background:rgba(34,212,122,.12);color:var(--green);border:1px solid rgba(34,212,122,.3)}
+  </style>
+  {% block extra_style %}{% endblock %}
+</head>
+<body>
+  <nav>
+    <a class="nav-brand" href="/"><span>//</span> gtm-tag-checker</a>
+    {% if user is defined and user %}
+    <div class="nav-right">
+      {% if user.picture %}<img class="nav-avatar" src="{{ user.picture }}" alt="">{% endif %}
+      <span class="nav-email">{{ user.email }}</span>
+      <a class="btn-logout" href="/logout">Logout</a>
+    </div>
+    {% endif %}
+  </nav>
+  <main>{% block content %}{% endblock %}</main>
+</body>
+</html>
