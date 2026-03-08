@@ -13,12 +13,19 @@ def get_session(request: Request) -> dict[str, Any]:
     if not raw:
         return {}
     try:
-        return _signer.loads(raw)  # type: ignore[no-any-return]
+        return _signer.loads(raw)
     except BadSignature:
         return {}
 
 def set_session(response: Response, data: dict[str, Any]) -> None:
-    response.set_cookie(_COOKIE_NAME, _signer.dumps(data), max_age=60*60*8, httponly=True, samesite="lax")
+    response.set_cookie(
+        _COOKIE_NAME,
+        _signer.dumps(data),
+        max_age=60 * 60 * 8,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+    )
 
 def clear_session(response: Response) -> None:
     response.delete_cookie(_COOKIE_NAME)
