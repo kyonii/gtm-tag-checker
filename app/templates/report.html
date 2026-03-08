@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Audit: {{ report.container_name }}{% endblock %}
+{% block extra_style %}
+<style>
+  .report-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem;margin-bottom:2rem;flex-wrap:wrap}
+  .report-header h1{font-size:1.4rem;margin-bottom:.25rem} .container-id{font-family:var(--mono);font-size:.82rem;color:var(--accent)}
+  .score-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem 1.5rem;text-align:center;min-width:120px;flex-shrink:0}
+  .score-number{font-family:var(--mono);font-size:2.5rem;font-weight:600;line-height:1}
+  .score-good{color:var(--green)} .score-ok{color:var(--yellow)} .score-bad{color:var(--red)}
+  .score-label{font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-top:.3rem}
+  .summary-bar{display:flex;gap:.75rem;margin-bottom:2.5rem;flex-wrap:wrap}
+  .summary-pill{display:flex;align-items:center;gap:.5rem;padding:.5rem 1rem;border-radius:20px;font-size:.83rem;font-weight:500;border:1px solid var(--border);background:var(--surface)}
+  .pill-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0} .dot-error{background:var(--red)} .dot-warning{background:var(--yellow)} .dot-pass{background:var(--green)}
+  .section-title{font-family:var(--mono);font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin:2rem 0 .75rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+  .check-item{background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:.75rem;overflow:hidden}
+  .check-item.error{border-left:3px solid var(--red)} .check-item.warning{border-left:3px solid var(--yellow)} .check-item.pass{border-left:3px solid var(--green);opacity:.7}
+  .check-header{display:flex;align-items:center;gap:.75rem;padding:.9rem 1.25rem;cursor:pointer;user-select:none}
+  .check-header:hover{background:var(--surface2)} .check-title{font-weight:500;font-size:.93rem;flex:1}
+  .check-id{font-family:var(--mono);font-size:.72rem;color:var(--text-dim)} .check-toggle{color:var(--text-dim);font-size:.85rem;transition:transform .2s}
+  .check-item.open .check-toggle{transform:rotate(90deg)}
+  .check-body{display:none;padding:0 1.25rem 1rem;border-top:1px solid var(--border)} .check-item.open .check-body{display:block}
+  .check-summary{font-size:.875rem;color:var(--text-dim);margin:.75rem 0}
+  .affected-list{list-style:none;margin:.5rem 0 .75rem;display:flex;flex-direction:column;gap:.35rem}
+  .affected-list li{font-family:var(--mono);font-size:.8rem;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:.3rem .75rem}
+  .recommendation{font-size:.83rem;color:var(--text-dim);background:var(--surface2);border-radius:4px;padding:.6rem .9rem;border-left:2px solid var(--accent-dim)}
+  .recommendation::before{content:'💡 '} .back-link{display:inline-flex;align-items:center;gap:.4rem;font-size:.85rem;color:var(--text-dim);margin-bottom:1.5rem}
+  .back-link:hover{color:var(--text);text-decoration:none}
+</style>
+{% endblock %}
+{% block content %}
+<a class="back-link" href="/">← Back to containers</a>
+<div class="report-header">
+  <div><div class="container-id">{{ report.container_id }}</div><h1>{{ report.container_name }}</h1></div>
+  <div class="score-box">
+    {% set s = report.score %}
+    <div class="score-number {% if s >= 80 %}score-good{% elif s >= 50 %}score-ok{% else %}score-bad{% endif %}">{{ s }}</div>
+    <div class="score-label">health score</div>
+  </div>
+</div>
+<div class="summary-bar">
+  {% set errors = report.failed | selectattr("severity", "equalto", Severity.ERROR) | list %}
+  {% set warnings = report.failed | selectattr("severity", "equalto", Severity.WARNING) | list %}
+  <div class="summary-pill"><span class="pill-dot dot-error"></span>{{ errors|length }} error{{ 's' if errors|length != 1 }}</div>
+  <div class="summary-pill"><span class="pill-dot dot-warning"></span>{{ warnings|length }} warning{{ 's' if warnings|length != 1 }}</div>
+  <div class="summary-pill"><span class="pill-dot dot-pass"></span>{{ report.passed_checks|length }} passed</div>
+</div>
+{% if report.failed %}
+<div class="section-title">Issues found</div>
+{% for r in report.failed %}
+<div class="check-item {{ r.severity.value }}" onclick="this.classList.toggle('open')">
+  <div class="check-header">
+    <span class="tag tag-{{ r.severity.value }}">{{ r.severity.value }}</span>
+    <span class="check-title">{{ r.title }}</span>
+    <span class="check-id">{{ r.check_id }}</span>
+    <span class="check-toggle">▶</span>
+  </div>
+  <div class="check-body">
+    <p class="check-summary">{{ r.summary }}</p>
+    {% if r.affected_items %}<ul class="affected-list">{% for item in r.affected_items %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+    {% if r.recommendation %}<div class="recommendation">{{ r.recommendation }}</div>{% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endif %}
+{% if report.passed_checks %}
+<div class="section-title">Passed checks</div>
+{% for r in report.passed_checks %}
+<div class="check-item pass" onclick="this.classList.toggle('open')">
+  <div class="check-header">
+    <span class="tag tag-pass">pass</span>
+    <span class="check-title">{{ r.title }}</span>
+    <span class="check-id">{{ r.check_id }}</span>
+    <span class="check-toggle">▶</span>
+  </div>
+  <div class="check-body"><p class="check-summary">{{ r.summary }}</p></div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}
