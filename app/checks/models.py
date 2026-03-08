@@ -1,6 +1,10 @@
 from __future__ import annotations
 from enum import Enum
+from typing import TYPE_CHECKING
 from pydantic import BaseModel, Field
+
+if TYPE_CHECKING:
+    from app.checks.naming import NamingConvention
 
 class Severity(str, Enum):
     ERROR = "error"; WARNING = "warning"; INFO = "info"
@@ -12,6 +16,7 @@ class CheckResult(BaseModel):
 class AuditReport(BaseModel):
     container_id: str; container_name: str
     results: list[CheckResult] = Field(default_factory=list)
+    naming_conventions: list = Field(default_factory=list)
 
     @property
     def score(self) -> int:
