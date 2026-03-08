@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Select Container – GTM Tag Checker{% endblock %}
+{% block extra_style %}
+<style>
+  .intro{margin-bottom:2rem} .intro h1{font-size:1.5rem;font-weight:600;margin-bottom:.4rem} .intro p{color:var(--text-dim);font-size:.9rem}
+  .container-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem}
+  .container-card{display:block;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1.25rem 1.5rem;transition:border-color .2s,transform .15s;color:var(--text)}
+  .container-card:hover{border-color:var(--accent);transform:translateY(-2px);text-decoration:none;color:var(--text)}
+  .pub-id{font-family:var(--mono);font-size:.8rem;color:var(--accent);margin-bottom:.35rem}
+  .cname{font-weight:600;font-size:1rem} .meta{font-size:.78rem;color:var(--text-dim);margin-top:.3rem;font-family:var(--mono)}
+  .arrow{float:right;color:var(--text-dim);font-size:1.1rem;transition:color .2s,transform .2s}
+  .container-card:hover .arrow{color:var(--accent);transform:translateX(3px)}
+  .error-box{background:rgba(247,79,79,.08);border:1px solid rgba(247,79,79,.3);border-radius:6px;padding:1rem 1.25rem;color:var(--red);font-size:.875rem}
+  .empty-state{padding:3rem;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:6px;font-size:.9rem}
+</style>
+{% endblock %}
+{% block content %}
+<div class="intro"><h1>Select a container to audit</h1><p>Choose a GTM container from your Google account.</p></div>
+{% if error %}<div class="error-box"><strong>Failed to load containers:</strong> {{ error }}</div>
+{% elif containers %}
+<div class="container-grid">
+  {% for c in containers %}
+  <a class="container-card" href="/audit/{{ c.account_id }}/{{ c.container_id }}">
+    <span class="arrow">→</span>
+    <div class="pub-id">{{ c.public_id or c.container_id }}</div>
+    <div class="cname">{{ c.name }}</div>
+    <div class="meta">account {{ c.account_id }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}<div class="empty-state">No GTM containers found in your Google account.</div>{% endif %}
+{% endblock %}
