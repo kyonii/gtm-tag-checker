@@ -19,4 +19,8 @@ class GTMContainer(BaseModel):
     triggers: list[GTMTrigger] = Field(default_factory=list)
 
 class GTMContainerSummary(BaseModel):
-    account_id: str; container_id: str; name: str; public_id: str
+    account_id: str
+    account_name: str = ""
+    container_id: str
+    name: str
+    public_id: str
