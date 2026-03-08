@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block title %}Error – GTM Tag Checker{% endblock %}
+{% block content %}
+<a style="display:inline-flex;align-items:center;gap:.4rem;font-size:.85rem;color:var(--text-dim);margin-bottom:1.5rem;" href="/">← Back</a>
+<h1 style="color:var(--red);margin-bottom:.75rem;">Something went wrong</h1>
+<div style="background:rgba(247,79,79,.08);border:1px solid rgba(247,79,79,.3);border-radius:6px;padding:1rem 1.25rem;font-family:var(--mono);font-size:.85rem;color:var(--red);">{{ message }}</div>
+<p style="margin-top:1rem;font-size:.875rem;color:var(--text-dim);">Check that your Google account has access to this GTM container and try again.</p>
+{% endblock %}
