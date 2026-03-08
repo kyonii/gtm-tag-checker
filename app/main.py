@@ -26,10 +26,9 @@ async def login_page(request: Request) -> HTMLResponse:
 @app.get("/auth/start")
 async def auth_start(request: Request) -> RedirectResponse:
     url, state = build_authorization_url()
+    # stateをセッションCookieに保存（redirect前にCookieをセット）
     response = RedirectResponse(url, status_code=302)
-    session = get_session(request)
-    session["oauth_state"] = state
-    set_session(response, session)
+    set_session(response, {"oauth_state": state})
     return response
 
 @app.get("/auth/callback")
@@ -37,7 +36,8 @@ async def auth_callback(request: Request, code: str = "", state: str = "", error
     if error:
         return RedirectResponse(f"/login?error={error}", status_code=302)
     session = get_session(request)
-    if state != session.get("oauth_state", ""):
+    saved_state = session.get("oauth_state", "")
+    if not saved_state or state != saved_state:
         return RedirectResponse("/login?error=invalid_state", status_code=302)
     tokens = await exchange_code_for_tokens(code)
     user_info = await fetch_user_info(tokens["access_token"])
@@ -45,9 +45,13 @@ async def auth_callback(request: Request, code: str = "", state: str = "", error
     if allowed and user_info.get("email") not in allowed:
         return RedirectResponse("/login?error=unauthorized", status_code=302)
     response = RedirectResponse("/", status_code=302)
-    set_session(response, {"email": user_info.get("email", ""), "name": user_info.get("name", ""),
-                            "picture": user_info.get("picture", ""), "access_token": tokens["access_token"],
-                            "refresh_token": tokens.get("refresh_token", "")})
+    set_session(response, {
+        "email": user_info.get("email", ""),
+        "name": user_info.get("name", ""),
+        "picture": user_info.get("picture", ""),
+        "access_token": tokens["access_token"],
+        "refresh_token": tokens.get("refresh_token", ""),
+    })
     return response
 
 @app.get("/logout")
