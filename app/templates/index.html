@@ -1,17 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Select Container - GTM Tag Checker{% endblock %}
+{% block title %}Select Container – GTM Tag Checker{% endblock %}
 {% block extra_style %}
 <style>
   .intro{margin-bottom:2rem} .intro h1{font-size:1.5rem;font-weight:600;margin-bottom:.4rem} .intro p{color:var(--text-dim);font-size:.9rem}
-  .account-section{margin-bottom:2rem}
-  .account-header{display:flex;align-items:center;gap:.6rem;margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
-  .account-icon{width:20px;height:20px;display:flex;align-items:center;justify-content:center;color:var(--text-dim);font-size:.9rem;flex-shrink:0}
-  .account-name{font-family:var(--mono);font-size:.82rem;font-weight:600;color:var(--text-dim);letter-spacing:.04em;text-transform:uppercase}
-  .account-id{font-family:var(--mono);font-size:.72rem;color:var(--border);margin-left:.25rem}
-  .container-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.75rem;padding-left:1.5rem}
-  .container-card{display:block;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1.1rem 1.25rem;transition:border-color .2s,transform .15s;color:var(--text)}
+  .account-section{margin-bottom:2.5rem}
+  .account-heading{font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);padding-bottom:.6rem;border-bottom:1px solid var(--border);margin-bottom:1rem}
+  .container-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:.75rem}
+  .container-card{display:block;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:1rem 1.25rem;transition:border-color .2s,transform .15s;color:var(--text)}
   .container-card:hover{border-color:var(--accent);transform:translateY(-2px);text-decoration:none;color:var(--text)}
-  .pub-id{font-family:var(--mono);font-size:.8rem;color:var(--accent);margin-bottom:.3rem}
+  .pub-id{font-family:var(--mono);font-size:.78rem;color:var(--accent);margin-bottom:.3rem}
   .cname{font-weight:600;font-size:.95rem}
   .arrow{float:right;color:var(--text-dim);font-size:1.1rem;transition:color .2s,transform .2s}
   .container-card:hover .arrow{color:var(--accent);transform:translateX(3px)}
@@ -23,17 +20,13 @@
 <div class="intro"><h1>Select a container to audit</h1><p>Choose a GTM container from your Google account.</p></div>
 {% if error %}<div class="error-box"><strong>Failed to load containers:</strong> {{ error }}</div>
 {% elif containers %}
-  {% set ns = namespace(current_account="") %}
+  {% set ns = namespace(current_account=None) %}
   {% for c in containers %}
-    {% if c.account_id != ns.current_account %}
-      {% if not loop.first %}</div></div>{% endif %}
-      {% set ns.current_account = c.account_id %}
+    {% if c.account_name != ns.current_account %}
+      {% if ns.current_account is not none %}</div></div>{% endif %}
+      {% set ns.current_account = c.account_name %}
       <div class="account-section">
-        <div class="account-header">
-          <span class="account-icon">⬡</span>
-          <span class="account-name">{{ c.account_name or c.account_id }}</span>
-          <span class="account-id">{{ c.account_id }}</span>
-        </div>
+        <div class="account-heading">{{ c.account_name }}</div>
         <div class="container-grid">
     {% endif %}
     <a class="container-card" href="/audit/{{ c.account_id }}/{{ c.container_id }}">
@@ -41,7 +34,7 @@
       <div class="pub-id">{{ c.public_id or c.container_id }}</div>
       <div class="cname">{{ c.name }}</div>
     </a>
-    {% if loop.last %}</div></div>{% endif %}
   {% endfor %}
+  {% if containers %}</div></div>{% endif %}
 {% else %}<div class="empty-state">No GTM containers found in your Google account.</div>{% endif %}
 {% endblock %}
