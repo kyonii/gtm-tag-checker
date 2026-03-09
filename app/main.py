@@ -26,7 +26,14 @@ async def login_page(request: Request) -> HTMLResponse:
 @app.get("/auth/start")
 async def auth_start(request: Request) -> RedirectResponse:
     url, state = build_authorization_url()
-    # stateをセッションCookieに保存（redirect前にCookieをセット）
+    response = RedirectResponse(url, status_code=302)
+    set_session(response, {"oauth_state": state})
+    return response
+
+@app.get("/auth/switch")
+async def auth_switch(request: Request) -> RedirectResponse:
+    """別のGoogleアカウントで再認証（アカウント選択画面を強制表示）"""
+    url, state = build_authorization_url(select_account=True)
     response = RedirectResponse(url, status_code=302)
     set_session(response, {"oauth_state": state})
     return response
