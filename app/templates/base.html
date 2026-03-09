@@ -10,10 +10,12 @@
     a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
     nav{display:flex;align-items:center;justify-content:space-between;padding:0 2rem;height:56px;border-bottom:1px solid var(--border);background:var(--surface)}
     .nav-brand{font-family:var(--mono);font-size:.95rem;font-weight:600;color:var(--text);letter-spacing:.05em} .nav-brand span{color:var(--accent)}
-    .nav-right{display:flex;align-items:center;gap:1rem} .nav-avatar{width:30px;height:30px;border-radius:50%;border:1px solid var(--border)}
+    .nav-right{display:flex;align-items:center;gap:.75rem} .nav-avatar{width:30px;height:30px;border-radius:50%;border:1px solid var(--border)}
     .nav-email{font-size:.8rem;color:var(--text-dim)}
-    .btn-logout{font-size:.8rem;color:var(--text-dim);border:1px solid var(--border);padding:.25rem .75rem;border-radius:4px;background:none;cursor:pointer;transition:border-color .2s,color .2s}
-    .btn-logout:hover{border-color:var(--accent);color:var(--text);text-decoration:none}
+    .nav-btn{font-size:.8rem;color:var(--text-dim);border:1px solid var(--border);padding:.25rem .75rem;border-radius:4px;background:none;cursor:pointer;transition:border-color .2s,color .2s;white-space:nowrap;text-decoration:none;display:inline-flex;align-items:center;gap:.35rem}
+    .nav-btn:hover{border-color:var(--accent);color:var(--text);text-decoration:none}
+    .nav-btn-switch{border-color:var(--accent-dim);color:var(--accent)}
+    .nav-btn-switch:hover{border-color:var(--accent);background:rgba(79,110,247,.1)}
     main{max-width:900px;margin:0 auto;padding:2.5rem 1.5rem}
     .tag{display:inline-block;font-family:var(--mono);font-size:.72rem;padding:.15rem .5rem;border-radius:3px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
     .tag-error{background:rgba(247,79,79,.15);color:var(--red);border:1px solid rgba(247,79,79,.3)}
@@ -29,7 +31,8 @@
     <div class="nav-right">
       {% if user.picture %}<img class="nav-avatar" src="{{ user.picture }}" alt="">{% endif %}
       <span class="nav-email">{{ user.email }}</span>
-      <a class="btn-logout" href="/logout">Logout</a>
+      <a class="nav-btn nav-btn-switch" href="/auth/switch" title="Switch Google account">&#8645; Switch account</a>
+      <a class="nav-btn" href="/logout">Logout</a>
     </div>
     {% endif %}
   </nav>
