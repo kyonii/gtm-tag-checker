@@ -112,9 +112,11 @@
 <div class="section-title">Naming convention analysis</div>
 {% for nc in report.naming_conventions %}
 {% set has_issues = nc.outliers | length > 0 %}
-<div class="naming-item {% if has_issues %}has-outliers{% else %}clean{% endif %}" onclick="this.classList.toggle('open')">
+<div class="naming-item {% if has_issues %}has-outliers{% elif nc.rule %}clean{% else %}no-rule{% endif %}" onclick="this.classList.toggle('open')">
   <div class="naming-header">
-    {% if has_issues %}
+    {% if not nc.rule %}
+      <span class="tag tag-warning">no pattern</span>
+    {% elif has_issues %}
       <span class="tag tag-warning">{{ nc.outliers | length }} to fix</span>
     {% else %}
       <span class="tag tag-pass">consistent</span>
@@ -124,13 +126,14 @@
     <span class="check-toggle">&#9658;</span>
   </div>
   <div class="naming-body">
-    {% if nc.recommended_pattern %}
+    {% if nc.rule %}
     <div class="conf-bar-wrap">
-      <div class="conf-label">Pattern consistency: {{ (nc.confidence * 100) | int }}%</div>
+      <div class="conf-label">Recommended rule: <code>{{ nc.rule.description }}</code> &nbsp;&mdash;&nbsp; {{ (nc.confidence * 100) | int }}% of tags match</div>
       <div class="conf-bar"><div class="conf-fill" style="width:{{ (nc.confidence * 100) | int }}%;background:{% if nc.confidence >= 0.8 %}var(--green){% elif nc.confidence >= 0.5 %}var(--yellow){% else %}var(--red){% endif %}"></div></div>
     </div>
+    {% if nc.all_patterns | length > 1 %}
     <table class="pattern-table">
-      <thead><tr><th>Pattern</th><th>Sep</th><th>Example</th><th>Count</th></tr></thead>
+      <thead><tr><th>Pattern</th><th>Separator</th><th>Example</th><th>#</th></tr></thead>
       <tbody>
       {% for p in nc.all_patterns %}
       <tr {% if loop.first %}class="recommended"{% endif %}>
@@ -139,26 +142,42 @@
           <code>{{ p.prefix }}</code>
         </td>
         <td><span class="sep-chip">{% if p.separator == " " %}[space]{% elif p.separator == "" %}none{% else %}{{ p.separator }}{% endif %}</span></td>
-        <td style="color:var(--text-dim)">{{ p.example }}</td>
+        <td style="color:var(--text-dim);font-size:.78rem">{{ p.members[0] }}</td>
         <td style="font-family:var(--mono)">{{ p.count }}</td>
       </tr>
       {% endfor %}
       </tbody>
     </table>
+    {% endif %}
     {% if nc.outliers %}
     <div class="outlier-section">
-      <div class="outlier-label">&#9888; Tags not matching recommended pattern ({{ nc.outliers | length }})</div>
+      <div class="outlier-label">&#9888; Does not match recommended rule ({{ nc.outliers | length }})</div>
       <ul class="outlier-list">
         {% for name in nc.outliers %}
         <li>
           <span>{{ name }}</span>
-          <span class="rename-arrow">&#8594;</span>
-          <span class="rename-suggestion">{{ nc.recommended_pattern.prefix }}{{ nc.recommended_pattern.separator }}...</span>
+          <span class="rename-arrow">&#8594; suggest:</span>
+          <span class="rename-suggestion">{{ nc.rule.prefix }}{{ nc.rule.separator }}...</span>
         </li>
         {% endfor %}
       </ul>
     </div>
     {% endif %}
+    {% else %}
+    <p style="font-size:.875rem;color:var(--text-dim);margin:.75rem 0">No dominant naming pattern found. All {{ nc.total }} tags use different prefixes or separators.</p>
+    <table class="pattern-table">
+      <thead><tr><th>Pattern</th><th>Separator</th><th>Example</th><th>#</th></tr></thead>
+      <tbody>
+      {% for p in nc.all_patterns %}
+      <tr>
+        <td><code>{{ p.prefix }}</code></td>
+        <td><span class="sep-chip">{% if p.separator == " " %}[space]{% elif p.separator == "" %}none{% else %}{{ p.separator }}{% endif %}</span></td>
+        <td style="color:var(--text-dim);font-size:.78rem">{{ p.members[0] }}</td>
+        <td style="font-family:var(--mono)">{{ p.count }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
     {% endif %}
   </div>
 </div>
