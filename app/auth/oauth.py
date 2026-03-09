@@ -9,10 +9,21 @@ _TOKEN_URL = "https://oauth2.googleapis.com/token"
 _USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 _SCOPES = "openid email profile https://www.googleapis.com/auth/tagmanager.readonly"
 
-def build_authorization_url() -> tuple[str, str]:
+def build_authorization_url(select_account: bool = False) -> tuple[str, str]:
     state = secrets.token_urlsafe(32)
-    params = {"client_id": settings.google_client_id, "redirect_uri": settings.oauth_redirect_uri,
-              "response_type": "code", "scope": _SCOPES, "access_type": "offline", "prompt": "consent", "state": state}
+    params = {
+        "client_id": settings.google_client_id,
+        "redirect_uri": settings.oauth_redirect_uri,
+        "response_type": "code",
+        "scope": _SCOPES,
+        "access_type": "offline",
+        "state": state,
+    }
+    if select_account:
+        # アカウント選択画面を強制表示
+        params["prompt"] = "select_account"
+    else:
+        params["prompt"] = "consent"
     return f"{_AUTH_URL}?{urlencode(params)}", state
 
 async def exchange_code_for_tokens(code: str) -> dict[str, str]:
@@ -21,10 +32,10 @@ async def exchange_code_for_tokens(code: str) -> dict[str, str]:
             "client_secret": settings.google_client_secret, "redirect_uri": settings.oauth_redirect_uri,
             "grant_type": "authorization_code"})
         r.raise_for_status()
-        return r.json()  # type: ignore[no-any-return]
+        return r.json()
 
 async def fetch_user_info(access_token: str) -> dict[str, str]:
     async with httpx.AsyncClient() as client:
         r = await client.get(_USERINFO_URL, headers={"Authorization": f"Bearer {access_token}"})
         r.raise_for_status()
-        return r.json()  # type: ignore[no-any-return]
+        return r.json()
