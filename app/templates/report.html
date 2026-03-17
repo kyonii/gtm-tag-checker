@@ -2,32 +2,61 @@
 {% block title %}Audit: {{ report.container_name }}{% endblock %}
 {% block extra_style %}
 <style>
+  /* ===== HEADER ===== */
   .report-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1.5rem;margin-bottom:2rem;flex-wrap:wrap}
-  .report-header h1{font-size:1.4rem;margin-bottom:.25rem} .container-id{font-family:var(--mono);font-size:.82rem;color:var(--accent)}
+  .report-header h1{font-size:1.4rem;margin-bottom:.25rem}
+  .container-id{font-family:var(--mono);font-size:.82rem;color:var(--accent)}
   .score-box{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:1rem 1.5rem;text-align:center;min-width:120px;flex-shrink:0}
   .score-number{font-family:var(--mono);font-size:2.5rem;font-weight:600;line-height:1}
   .score-good{color:var(--green)} .score-ok{color:var(--yellow)} .score-bad{color:var(--red)}
   .score-label{font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-top:.3rem}
-  .summary-bar{display:flex;gap:.75rem;margin-bottom:2.5rem;flex-wrap:wrap}
-  .summary-pill{display:flex;align-items:center;gap:.5rem;padding:.5rem 1rem;border-radius:20px;font-size:.83rem;font-weight:500;border:1px solid var(--border);background:var(--surface)}
-  .pill-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0} .dot-error{background:var(--red)} .dot-warning{background:var(--yellow)} .dot-pass{background:var(--green)}
-  .section-title{font-family:var(--mono);font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin:2rem 0 .75rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+
+  /* ===== TABS ===== */
+  .tab-bar{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:2rem}
+  .tab-btn{font-family:var(--mono);font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;padding:.65rem 1.25rem;border:none;background:none;color:var(--text-dim);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s;white-space:nowrap;display:flex;align-items:center;gap:.5rem}
+  .tab-btn:hover{color:var(--text)}
+  .tab-btn.active{color:var(--text);border-bottom-color:var(--accent)}
+  .tab-count{font-size:.68rem;padding:.1rem .4rem;border-radius:10px;font-weight:700}
+  .count-risk{background:rgba(247,79,79,.2);color:var(--red)}
+  .count-cleanup{background:rgba(247,195,79,.2);color:var(--yellow)}
+  .count-naming{background:rgba(79,110,247,.2);color:var(--accent)}
+  .tab-count.zero{background:rgba(34,212,122,.15);color:var(--green)}
+
+  /* ===== TAB PANELS ===== */
+  .tab-panel{display:none}
+  .tab-panel.active{display:block}
+
+  /* ===== CHECK CARDS ===== */
+  .section-title{font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin:1.5rem 0 .75rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
   .check-item{background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:.75rem;overflow:hidden}
-  .check-item.error{border-left:3px solid var(--red)} .check-item.warning{border-left:3px solid var(--yellow)} .check-item.pass{border-left:3px solid var(--green);opacity:.7}
+  .check-item.error{border-left:3px solid var(--red)}
+  .check-item.warning{border-left:3px solid var(--yellow)}
+  .check-item.pass{border-left:3px solid var(--green);opacity:.65}
   .check-header{display:flex;align-items:center;gap:.75rem;padding:.9rem 1.25rem;cursor:pointer;user-select:none}
-  .check-header:hover{background:var(--surface2)} .check-title{font-weight:500;font-size:.93rem;flex:1}
-  .check-id{font-family:var(--mono);font-size:.72rem;color:var(--text-dim)} .check-toggle{color:var(--text-dim);font-size:.85rem;transition:transform .2s}
+  .check-header:hover{background:var(--surface2)}
+  .check-title{font-weight:500;font-size:.93rem;flex:1}
+  .check-id{font-family:var(--mono);font-size:.72rem;color:var(--text-dim)}
+  .check-toggle{color:var(--text-dim);font-size:.85rem;transition:transform .2s}
   .check-item.open .check-toggle{transform:rotate(90deg)}
-  .check-body{display:none;padding:0 1.25rem 1rem;border-top:1px solid var(--border)} .check-item.open .check-body{display:block}
+  .check-body{display:none;padding:0 1.25rem 1rem;border-top:1px solid var(--border)}
+  .check-item.open .check-body{display:block}
   .check-summary{font-size:.875rem;color:var(--text-dim);margin:.75rem 0}
   .affected-list{list-style:none;margin:.5rem 0 .75rem;display:flex;flex-direction:column;gap:.35rem}
   .affected-list li{font-family:var(--mono);font-size:.8rem;background:var(--surface2);border:1px solid var(--border);border-radius:3px;padding:.3rem .75rem}
   .recommendation{font-size:.83rem;color:var(--text-dim);background:var(--surface2);border-radius:4px;padding:.6rem .9rem;border-left:2px solid var(--accent-dim)}
   .recommendation::before{content:'\1F4A1 '}
-  .back-link{display:inline-flex;align-items:center;gap:.4rem;font-size:.85rem;color:var(--text-dim);margin-bottom:1.5rem}
+
+  /* ===== TAGS ===== */
+  .tag{display:inline-block;font-family:var(--mono);font-size:.72rem;padding:.15rem .5rem;border-radius:3px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+  .tag-error{background:rgba(247,79,79,.15);color:var(--red);border:1px solid rgba(247,79,79,.3)}
+  .tag-warning{background:rgba(247,195,79,.12);color:var(--yellow);border:1px solid rgba(247,195,79,.3)}
+  .tag-pass{background:rgba(34,212,122,.12);color:var(--green);border:1px solid rgba(34,212,122,.3)}
+
+  /* ===== BACK LINK ===== */
+  .back-link{display:inline-flex;align-items:center;gap:.4rem;font-size:.85rem;color:var(--text-dim);margin-bottom:1.5rem;text-decoration:none}
   .back-link:hover{color:var(--text);text-decoration:none}
 
-  /* ===== Naming Convention ===== */
+  /* ===== NAMING ===== */
   .naming-item{background:var(--surface);border:1px solid var(--border);border-radius:6px;margin-bottom:.75rem;overflow:hidden}
   .naming-item.has-outliers{border-left:3px solid var(--yellow)}
   .naming-item.clean{border-left:3px solid var(--green);opacity:.75}
@@ -41,7 +70,7 @@
   .conf-bar-wrap{margin:.75rem 0 1rem}
   .conf-label{font-size:.75rem;color:var(--text-dim);margin-bottom:.3rem}
   .conf-bar{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
-  .conf-fill{height:100%;border-radius:3px;transition:width .4s}
+  .conf-fill{height:100%;border-radius:3px}
   .pattern-table{width:100%;border-collapse:collapse;font-size:.82rem;margin:.5rem 0 1rem}
   .pattern-table th{text-align:left;font-family:var(--mono);font-size:.7rem;color:var(--text-dim);font-weight:600;text-transform:uppercase;letter-spacing:.06em;padding:.4rem .6rem;border-bottom:1px solid var(--border)}
   .pattern-table td{padding:.45rem .6rem;border-bottom:1px solid rgba(42,42,58,.5);vertical-align:top}
@@ -52,136 +81,204 @@
   .outlier-label{font-size:.78rem;font-weight:600;color:var(--yellow);margin-bottom:.4rem}
   .outlier-list{list-style:none;display:flex;flex-direction:column;gap:.3rem}
   .outlier-list li{font-family:var(--mono);font-size:.78rem;background:rgba(247,195,79,.06);border:1px solid rgba(247,195,79,.2);border-radius:3px;padding:.3rem .7rem;display:flex;align-items:center;gap:.6rem}
-  .rename-arrow{color:var(--text-dim);font-size:.8rem}
+  .rename-arrow{color:var(--text-dim);font-size:.8rem;flex-shrink:0}
   .rename-suggestion{color:var(--green);font-weight:600}
 </style>
 {% endblock %}
 {% block content %}
 <a class="back-link" href="/">&#8592; Back to containers</a>
+
 <div class="report-header">
-  <div><div class="container-id">{{ report.container_id }}</div><h1>{{ report.container_name }}</h1></div>
+  <div>
+    <div class="container-id">{{ report.container_id }}</div>
+    <h1>{{ report.container_name }}</h1>
+  </div>
   <div class="score-box">
     {% set s = report.score %}
     <div class="score-number {% if s >= 80 %}score-good{% elif s >= 50 %}score-ok{% else %}score-bad{% endif %}">{{ s }}</div>
     <div class="score-label">health score</div>
   </div>
 </div>
-<div class="summary-bar">
-  {% set errors = report.failed | selectattr("severity", "equalto", Severity.ERROR) | list %}
-  {% set warnings = report.failed | selectattr("severity", "equalto", Severity.WARNING) | list %}
-  <div class="summary-pill"><span class="pill-dot dot-error"></span>{{ errors|length }} error{{ 's' if errors|length != 1 }}</div>
-  <div class="summary-pill"><span class="pill-dot dot-warning"></span>{{ warnings|length }} warning{{ 's' if warnings|length != 1 }}</div>
-  <div class="summary-pill"><span class="pill-dot dot-pass"></span>{{ report.passed_checks|length }} passed</div>
+
+<!-- TAB BAR -->
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('risk', this)">
+    &#128308; Risk
+    {% set rc = report.risk_issues | length %}
+    <span class="tab-count {% if rc == 0 %}zero{% else %}count-risk{% endif %}">{{ rc }}</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('cleanup', this)">
+    &#129529; Cleanup
+    {% set cc = report.cleanup_issues | length %}
+    <span class="tab-count {% if cc == 0 %}zero{% else %}count-cleanup{% endif %}">{{ cc }}</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('naming', this)">
+    &#128196; Naming
+    {% set nc_issues = report.naming_conventions | selectattr('outliers') | list | length %}
+    <span class="tab-count {% if nc_issues == 0 %}zero{% else %}count-naming{% endif %}">{{ nc_issues }}</span>
+  </button>
 </div>
 
-{% if report.failed %}
-<div class="section-title">Issues found</div>
-{% for r in report.failed %}
-<div class="check-item {{ r.severity.value }}" onclick="this.classList.toggle('open')">
-  <div class="check-header">
-    <span class="tag tag-{{ r.severity.value }}">{{ r.severity.value }}</span>
-    <span class="check-title">{{ r.title }}</span>
-    <span class="check-id">{{ r.check_id }}</span>
-    <span class="check-toggle">&#9658;</span>
-  </div>
-  <div class="check-body">
-    <p class="check-summary">{{ r.summary }}</p>
-    {% if r.affected_items %}<ul class="affected-list">{% for item in r.affected_items %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
-    {% if r.recommendation %}<div class="recommendation">{{ r.recommendation }}</div>{% endif %}
-  </div>
-</div>
-{% endfor %}
-{% endif %}
-
-{% if report.passed_checks %}
-<div class="section-title">Passed checks</div>
-{% for r in report.passed_checks %}
-<div class="check-item pass" onclick="this.classList.toggle('open')">
-  <div class="check-header">
-    <span class="tag tag-pass">pass</span>
-    <span class="check-title">{{ r.title }}</span>
-    <span class="check-id">{{ r.check_id }}</span>
-    <span class="check-toggle">&#9658;</span>
-  </div>
-  <div class="check-body"><p class="check-summary">{{ r.summary }}</p></div>
-</div>
-{% endfor %}
-{% endif %}
-
-{% if report.naming_conventions %}
-<div class="section-title">Naming convention analysis</div>
-{% for nc in report.naming_conventions %}
-{% set has_issues = nc.outliers | length > 0 %}
-<div class="naming-item {% if has_issues %}has-outliers{% elif nc.rule %}clean{% else %}no-rule{% endif %}" onclick="this.classList.toggle('open')">
-  <div class="naming-header">
-    {% if not nc.rule %}
-      <span class="tag tag-warning">no pattern</span>
-    {% elif has_issues %}
-      <span class="tag tag-warning">{{ nc.outliers | length }} to fix</span>
-    {% else %}
-      <span class="tag tag-pass">consistent</span>
-    {% endif %}
-    <span class="naming-title">{{ nc.tag_type_label }}</span>
-    <span class="naming-meta">{{ nc.total }} tags</span>
-    <span class="check-toggle">&#9658;</span>
-  </div>
-  <div class="naming-body">
-    {% if nc.rule %}
-    <div class="conf-bar-wrap">
-      <div class="conf-label">Recommended rule: <code>{{ nc.rule.description }}</code> &nbsp;&mdash;&nbsp; {{ (nc.confidence * 100) | int }}% of tags match</div>
-      <div class="conf-bar"><div class="conf-fill" style="width:{{ (nc.confidence * 100) | int }}%;background:{% if nc.confidence >= 0.8 %}var(--green){% elif nc.confidence >= 0.5 %}var(--yellow){% else %}var(--red){% endif %}"></div></div>
+<!-- TAB: RISK -->
+<div id="tab-risk" class="tab-panel active">
+  {% if report.risk_issues %}
+  <div class="section-title">Issues</div>
+  {% for r in report.risk_issues %}
+  <div class="check-item {{ r.severity.value }}" onclick="this.classList.toggle('open')">
+    <div class="check-header">
+      <span class="tag tag-{{ r.severity.value }}">{{ r.severity.value }}</span>
+      <span class="check-title">{{ r.title }}</span>
+      <span class="check-id">{{ r.check_id }}</span>
+      <span class="check-toggle">&#9658;</span>
     </div>
-    {% if nc.all_patterns | length > 1 %}
-    <table class="pattern-table">
-      <thead><tr><th>Pattern</th><th>Separator</th><th>Example</th><th>#</th></tr></thead>
-      <tbody>
-      {% for p in nc.all_patterns %}
-      <tr {% if loop.first %}class="recommended"{% endif %}>
-        <td>
-          {% if loop.first %}<span class="pattern-badge">recommended</span> {% endif %}
-          <code>{{ p.prefix }}</code>
-        </td>
-        <td><span class="sep-chip">{% if p.separator == " " %}[space]{% elif p.separator == "" %}none{% else %}{{ p.separator }}{% endif %}</span></td>
-        <td style="color:var(--text-dim);font-size:.78rem">{{ p.members[0] }}</td>
-        <td style="font-family:var(--mono)">{{ p.count }}</td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    {% endif %}
-    {% if nc.outliers %}
-    <div class="outlier-section">
-      <div class="outlier-label">&#9888; Does not match recommended rule ({{ nc.outliers | length }})</div>
-      <ul class="outlier-list">
-        {% for name in nc.outliers %}
-        <li>
-          <span>{{ name }}</span>
-          <span class="rename-arrow">&#8594; suggest:</span>
-          <span class="rename-suggestion">{{ nc.rule.prefix }}{{ nc.rule.separator }}...</span>
-        </li>
+    <div class="check-body">
+      <p class="check-summary">{{ r.summary }}</p>
+      {% if r.affected_items %}<ul class="affected-list">{% for item in r.affected_items %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+      {% if r.recommendation %}<div class="recommendation">{{ r.recommendation }}</div>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+  {% set risk_passed = report.risk_checks | selectattr('passed') | list %}
+  {% if risk_passed %}
+  <div class="section-title">Passed</div>
+  {% for r in risk_passed %}
+  <div class="check-item pass" onclick="this.classList.toggle('open')">
+    <div class="check-header">
+      <span class="tag tag-pass">pass</span>
+      <span class="check-title">{{ r.title }}</span>
+      <span class="check-id">{{ r.check_id }}</span>
+      <span class="check-toggle">&#9658;</span>
+    </div>
+    <div class="check-body"><p class="check-summary">{{ r.summary }}</p></div>
+  </div>
+  {% endfor %}
+  {% endif %}
+  {% if not report.risk_issues and not risk_passed %}
+  <p style="color:var(--text-dim);font-size:.9rem;padding:2rem 0">No risk checks configured yet.</p>
+  {% endif %}
+</div>
+
+<!-- TAB: CLEANUP -->
+<div id="tab-cleanup" class="tab-panel">
+  {% if report.cleanup_issues %}
+  <div class="section-title">Issues</div>
+  {% for r in report.cleanup_issues %}
+  <div class="check-item {{ r.severity.value }}" onclick="this.classList.toggle('open')">
+    <div class="check-header">
+      <span class="tag tag-{{ r.severity.value }}">{{ r.severity.value }}</span>
+      <span class="check-title">{{ r.title }}</span>
+      <span class="check-id">{{ r.check_id }}</span>
+      <span class="check-toggle">&#9658;</span>
+    </div>
+    <div class="check-body">
+      <p class="check-summary">{{ r.summary }}</p>
+      {% if r.affected_items %}<ul class="affected-list">{% for item in r.affected_items %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
+      {% if r.recommendation %}<div class="recommendation">{{ r.recommendation }}</div>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+  {% set cleanup_passed = report.cleanup_checks | selectattr('passed') | list %}
+  {% if cleanup_passed %}
+  <div class="section-title">Passed</div>
+  {% for r in cleanup_passed %}
+  <div class="check-item pass" onclick="this.classList.toggle('open')">
+    <div class="check-header">
+      <span class="tag tag-pass">pass</span>
+      <span class="check-title">{{ r.title }}</span>
+      <span class="check-id">{{ r.check_id }}</span>
+      <span class="check-toggle">&#9658;</span>
+    </div>
+    <div class="check-body"><p class="check-summary">{{ r.summary }}</p></div>
+  </div>
+  {% endfor %}
+  {% endif %}
+</div>
+
+<!-- TAB: NAMING -->
+<div id="tab-naming" class="tab-panel">
+  {% if report.naming_conventions %}
+  {% for nc in report.naming_conventions %}
+  {% set has_issues = nc.outliers | length > 0 %}
+  <div class="naming-item {% if has_issues %}has-outliers{% else %}clean{% endif %}" onclick="this.classList.toggle('open')">
+    <div class="naming-header">
+      {% if not nc.rule %}
+        <span class="tag tag-warning">no pattern</span>
+      {% elif has_issues %}
+        <span class="tag tag-warning">{{ nc.outliers | length }} to fix</span>
+      {% else %}
+        <span class="tag tag-pass">consistent</span>
+      {% endif %}
+      <span class="naming-title">{{ nc.tag_type_label }}</span>
+      <span class="naming-meta">{{ nc.total }} tags</span>
+      <span class="check-toggle">&#9658;</span>
+    </div>
+    <div class="naming-body">
+      {% if nc.rule %}
+      <div class="conf-bar-wrap">
+        <div class="conf-label">Recommended rule: <code>{{ nc.rule.description }}</code> &mdash; {{ (nc.confidence * 100) | int }}% match</div>
+        <div class="conf-bar"><div class="conf-fill" style="width:{{ (nc.confidence * 100) | int }}%;background:{% if nc.confidence >= 0.8 %}var(--green){% elif nc.confidence >= 0.5 %}var(--yellow){% else %}var(--red){% endif %}"></div></div>
+      </div>
+      {% if nc.all_patterns | length > 1 %}
+      <table class="pattern-table">
+        <thead><tr><th>Pattern</th><th>Sep</th><th>Example</th><th>#</th></tr></thead>
+        <tbody>
+        {% for p in nc.all_patterns %}
+        <tr {% if loop.first %}class="recommended"{% endif %}>
+          <td>{% if loop.first %}<span class="pattern-badge">recommended</span> {% endif %}<code>{{ p.prefix }}</code></td>
+          <td><span class="sep-chip">{% if p.separator == " " %}[space]{% elif p.separator == "" %}none{% else %}{{ p.separator }}{% endif %}</span></td>
+          <td style="color:var(--text-dim);font-size:.78rem">{{ p.members[0] }}</td>
+          <td style="font-family:var(--mono)">{{ p.count }}</td>
+        </tr>
         {% endfor %}
-      </ul>
+        </tbody>
+      </table>
+      {% endif %}
+      {% if nc.outliers %}
+      <div class="outlier-section">
+        <div class="outlier-label">&#9888; Does not match ({{ nc.outliers | length }})</div>
+        <ul class="outlier-list">
+          {% for name in nc.outliers %}
+          <li>
+            <span>{{ name }}</span>
+            <span class="rename-arrow">&#8594;</span>
+            <span class="rename-suggestion">{{ nc.rule.prefix }}{{ nc.rule.separator }}...</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+      {% else %}
+      <p style="font-size:.875rem;color:var(--text-dim);margin:.75rem 0">No dominant pattern found across {{ nc.total }} tags.</p>
+      <table class="pattern-table">
+        <thead><tr><th>Pattern</th><th>Sep</th><th>Example</th><th>#</th></tr></thead>
+        <tbody>
+        {% for p in nc.all_patterns %}
+        <tr>
+          <td><code>{{ p.prefix }}</code></td>
+          <td><span class="sep-chip">{% if p.separator == " " %}[space]{% elif p.separator == "" %}none{% else %}{{ p.separator }}{% endif %}</span></td>
+          <td style="color:var(--text-dim);font-size:.78rem">{{ p.members[0] }}</td>
+          <td style="font-family:var(--mono)">{{ p.count }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% endif %}
     </div>
-    {% endif %}
-    {% else %}
-    <p style="font-size:.875rem;color:var(--text-dim);margin:.75rem 0">No dominant naming pattern found. All {{ nc.total }} tags use different prefixes or separators.</p>
-    <table class="pattern-table">
-      <thead><tr><th>Pattern</th><th>Separator</th><th>Example</th><th>#</th></tr></thead>
-      <tbody>
-      {% for p in nc.all_patterns %}
-      <tr>
-        <td><code>{{ p.prefix }}</code></td>
-        <td><span class="sep-chip">{% if p.separator == " " %}[space]{% elif p.separator == "" %}none{% else %}{{ p.separator }}{% endif %}</span></td>
-        <td style="color:var(--text-dim);font-size:.78rem">{{ p.members[0] }}</td>
-        <td style="font-family:var(--mono)">{{ p.count }}</td>
-      </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    {% endif %}
   </div>
+  {% endfor %}
+  {% else %}
+  <p style="color:var(--text-dim);font-size:.9rem;padding:2rem 0">Not enough tags to analyze naming patterns.</p>
+  {% endif %}
 </div>
-{% endfor %}
-{% endif %}
 
+<script>
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
 {% endblock %}
