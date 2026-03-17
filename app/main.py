@@ -33,10 +33,11 @@ async def auth_start(request: Request) -> RedirectResponse:
     return response
 
 @app.get("/auth/switch")
-async def auth_switch(request: Request) -> RedirectResponse:
+async def auth_switch(request: Request, next: str = "/") -> RedirectResponse:
     url, state = build_authorization_url(select_account=True)
     response = RedirectResponse(url, status_code=302)
-    set_session(response, {"oauth_state": state})
+    next_path = next if next.startswith("/") else "/"
+    set_session(response, {"oauth_state": state, "next": next_path})
     return response
 
 @app.get("/auth/callback")
@@ -52,7 +53,8 @@ async def auth_callback(request: Request, code: str = "", state: str = "", error
     allowed = settings.allowed_email_set
     if allowed and user_info.get("email") not in allowed:
         return RedirectResponse("/login?error=unauthorized", status_code=302)
-    response = RedirectResponse("/", status_code=302)
+    next_url = session.get("next", "/")
+    response = RedirectResponse(next_url, status_code=302)
     set_session(response, {
         "email": user_info.get("email", ""),
         "name": user_info.get("name", ""),
@@ -76,7 +78,11 @@ async def index(request: Request, user: AuthenticatedUser = Depends(get_current_
         error = ""
     except Exception as e:
         containers = []; error = str(e)
-    return templates.TemplateResponse("index.html", {"request": request, "user": user, "containers": containers, "error": error})
+    return templates.TemplateResponse("index.html", {
+        "request": request, "user": user,
+        "containers": containers, "error": error,
+        "current_path": "/",
+    })
 
 @app.get("/audit/{account_id}/{container_id}", response_class=HTMLResponse)
 async def audit(request: Request, account_id: str, container_id: str,
@@ -87,7 +93,6 @@ async def audit(request: Request, account_id: str, container_id: str,
         report = run_audit(container)
     except Exception as e:
         return templates.TemplateResponse("error.html", {"request": request, "user": user, "message": str(e)})
-    # GAプロパティ一覧も取得（タブ表示用）
     ga = GAClient(access_token=user.access_token)
     try:
         ga_properties = await ga.list_properties()
@@ -98,12 +103,12 @@ async def audit(request: Request, account_id: str, container_id: str,
         "report": report, "Severity": Severity,
         "account_id": account_id, "container_id": container_id,
         "ga_properties": ga_properties,
+        "current_path": f"/audit/{account_id}/{container_id}",
     })
 
 @app.get("/audit/{account_id}/{container_id}/ga-check")
 async def ga_check(request: Request, account_id: str, container_id: str, property_id: str,
                    user: AuthenticatedUser = Depends(get_current_user)) -> JSONResponse:
-    """GAプロパティとGTMコンテナの照合結果をJSONで返す"""
     gtm = GTMClient(access_token=user.access_token)
     ga = GAClient(access_token=user.access_token)
     try:
