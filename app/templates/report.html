@@ -117,6 +117,10 @@
     {% set nc_issues = report.naming_conventions | selectattr('outliers') | list | length %}
     <span class="tab-count {% if nc_issues == 0 %}zero{% else %}count-naming{% endif %}">{{ nc_issues }}</span>
   </button>
+  <button class="tab-btn" onclick="switchTab('ga', this)">
+    &#128279; GA
+    <span class="tab-count count-risk" id="ga-issue-count" style="display:none"></span>
+  </button>
 </div>
 
 <!-- TAB: RISK -->
@@ -273,6 +277,82 @@
   {% endif %}
 </div>
 
+<!-- TAB: GA -->
+<div id="tab-ga" class="tab-panel">
+  {% if ga_properties %}
+  <div style="margin-bottom:1.5rem">
+    <label style="font-size:.82rem;color:var(--text-dim);font-family:var(--mono);display:block;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.08em">Select GA4 Property</label>
+    <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+      <select id="ga-property-select" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:.82rem;padding:.45rem .75rem;border-radius:4px;cursor:pointer;min-width:280px">
+        <option value="">-- Select a property --</option>
+        {% for p in ga_properties %}
+        <option value="{{ p.property_id }}">{{ p.display_name }} ({{ p.property_id }})</option>
+        {% endfor %}
+      </select>
+      <button onclick="runGACheck()" style="background:var(--accent);border:none;color:#fff;font-family:var(--mono);font-size:.8rem;padding:.45rem 1rem;border-radius:4px;cursor:pointer;font-weight:600">Run Check</button>
+    </div>
+  </div>
+  <div id="ga-result"></div>
+  {% else %}
+  <div style="padding:2rem;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:6px;font-size:.9rem">
+    No GA4 properties found, or analytics access was not granted.<br>
+    <a href="/auth/switch" style="color:var(--accent);font-size:.85rem;margin-top:.5rem;display:inline-block">Re-authenticate with analytics scope</a>
+  </div>
+  {% endif %}
+</div>
+
+<script>
+async function runGACheck() {
+  const sel = document.getElementById('ga-property-select');
+  const propId = sel.value;
+  if (!propId) return;
+  const resultDiv = document.getElementById('ga-result');
+  resultDiv.innerHTML = '<p style="color:var(--text-dim);font-size:.88rem;padding:.5rem 0">&#9203; Checking...</p>';
+  try {
+    const r = await fetch('/audit/{{ account_id }}/{{ container_id }}/ga-check?property_id=' + encodeURIComponent(propId));
+    const data = await r.json();
+    if (data.error) { resultDiv.innerHTML = '<p style="color:var(--red)">' + data.error + '</p>'; return; }
+    renderGAResult(data);
+  } catch(e) { resultDiv.innerHTML = '<p style="color:var(--red)">Request failed: ' + e.message + '</p>'; }
+}
+
+function renderGAResult(data) {
+  const issues = data.stream_results.filter(r => r.issues.length > 0);
+  const ok = data.stream_results.filter(r => r.issues.length === 0);
+  const badge = document.getElementById('ga-issue-count');
+  if (issues.length > 0) { badge.style.display=''; badge.textContent = issues.length; }
+
+  let html = '<div style="font-family:var(--mono);font-size:.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem">' + data.property_name + '</div>';
+
+  if (issues.length) {
+    html += '<div style="font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin:1rem 0 .5rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)">Issues</div>';
+    for (const r of issues) {
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:6px;padding:.85rem 1.25rem;margin-bottom:.6rem">
+        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.4rem">
+          <span style="font-family:var(--mono);font-size:.78rem;color:var(--accent)">${r.measurement_id}</span>
+          <span style="font-size:.88rem;font-weight:500">${r.stream_name || '(unknown)'}</span>
+          ${r.default_uri ? '<span style="font-size:.78rem;color:var(--text-dim)">' + r.default_uri + '</span>' : ''}
+        </div>
+        ${r.issues.map(i => '<p style="font-size:.82rem;color:var(--red);margin-top:.25rem">&#9888; ' + i + '</p>').join('')}
+        ${r.gtm_tag_names.length ? '<p style="font-size:.78rem;color:var(--text-dim);margin-top:.3rem;font-family:var(--mono)">GTM: ' + r.gtm_tag_names.join(', ') + '</p>' : ''}
+      </div>`;
+    }
+  }
+
+  if (ok.length) {
+    html += '<div style="font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin:1rem 0 .5rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)">OK</div>';
+    for (const r of ok) {
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green);border-radius:6px;padding:.75rem 1.25rem;margin-bottom:.5rem;opacity:.75;display:flex;align-items:center;gap:.75rem">
+        <span style="font-family:var(--mono);font-size:.78rem;color:var(--accent)">${r.measurement_id}</span>
+        <span style="font-size:.88rem;font-weight:500">${r.stream_name}</span>
+        ${r.default_uri ? '<span style="font-size:.78rem;color:var(--text-dim)">' + r.default_uri + '</span>' : ''}
+        ${r.gtm_tag_names.length ? '<span style="font-size:.78rem;color:var(--text-dim);font-family:var(--mono);margin-left:auto">' + r.gtm_tag_names[0] + '</span>' : ''}
+      </div>`;
+    }
+  }
+  document.getElementById('ga-result').innerHTML = html;
+}
+</script>
 <script>
 function switchTab(name, btn) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
