@@ -31,7 +31,7 @@
     <div class="nav-right">
       {% if user.picture %}<img class="nav-avatar" src="{{ user.picture }}" alt="">{% endif %}
       <span class="nav-email">{{ user.email }}</span>
-      <a class="nav-btn nav-btn-switch" href="/auth/switch?next={{ current_path | default('/') | urlencode }}">&#8645; Switch account</a>
+      <a class="nav-btn nav-btn-switch" href="/auth/switch?next={{ current_path | default('/') }}">&#8645; Switch account</a>
       <a class="nav-btn" href="/logout">Logout</a>
     </div>
     {% endif %}
