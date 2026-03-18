@@ -296,7 +296,7 @@
   {% else %}
   <div style="padding:2rem;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:6px;font-size:.9rem">
     No GA4 properties found, or analytics access was not granted.<br>
-    <a href="/auth/switch" style="color:var(--accent);font-size:.85rem;margin-top:.5rem;display:inline-block">Re-authenticate with analytics scope</a>
+    <a href="/auth/switch?next={{ current_path | default('/') }}" style="color:var(--accent);font-size:.85rem;margin-top:.5rem;display:inline-block">Re-authenticate with analytics scope</a>
   </div>
   {% endif %}
 </div>
