@@ -306,7 +306,8 @@ function switchTab(name, btn) {
   }
 }
 
-{% if ga_properties %}
+var _hasGAProperties = {{ "true" if ga_properties else "false" }};
+if (_hasGAProperties) {
 async function loadGAOverview() {
   const div = document.getElementById('ga-overview-content');
 
@@ -489,6 +490,6 @@ async function runPageCheck(propertyId, measurementId, defaultUri, safeId, btn) 
     btn.textContent = 'Check GTM tags';
   };
 }
-{% endif %}
+} // end if _hasGAProperties
 </script>
 {% endblock %}
