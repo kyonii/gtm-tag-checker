@@ -309,7 +309,18 @@ function switchTab(name, btn) {
 {% if ga_properties %}
 async function loadGAOverview() {
   const div = document.getElementById('ga-overview-content');
-  div.innerHTML = '<div style="text-align:center;padding:2rem 0;color:var(--text-dim);font-size:.88rem">&#9203; Matching GTM measurement IDs with GA properties...</div>';
+
+  // 進捗表示
+  div.innerHTML = `
+    <div style="padding:1.5rem 0">
+      <div style="font-size:.85rem;color:var(--text-dim);margin-bottom:.75rem" id="ga-status-msg">Matching GTM IDs with GA properties...</div>
+      <div style="background:var(--border);border-radius:3px;height:4px;overflow:hidden">
+        <div id="ga-progress-bar" style="width:0%;height:100%;background:var(--accent);transition:width .3s"></div>
+      </div>
+      <div style="font-size:.75rem;color:var(--text-dim);margin-top:.4rem;font-family:var(--mono)" id="ga-progress-label"></div>
+    </div>
+  `;
+
   try {
     const r = await fetch('/audit/{{ account_id }}/{{ container_id }}/ga-overview');
     const data = await r.json();
@@ -327,13 +338,12 @@ function renderGAOverview(data) {
   // 権限あり
   html += `<div style="font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:.6rem;display:flex;align-items:center;gap:.5rem">
     <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span>
-    Access granted (${data.matched.length})
+    Access granted — matched with GTM (${data.matched.length})
   </div>`;
 
   if (data.matched.length === 0) {
     html += '<div style="color:var(--text-dim);font-size:.85rem;padding:.5rem 0 1.5rem">No GTM measurement IDs matched your GA properties.</div>';
   } else {
-    // アカウントでグルーピング
     const byAccount = {};
     for (const m of data.matched) {
       if (!byAccount[m.account_name]) byAccount[m.account_name] = [];
@@ -343,23 +353,24 @@ function renderGAOverview(data) {
       html += `<div style="font-size:.78rem;color:var(--text-dim);font-family:var(--mono);margin:.75rem 0 .35rem;padding-bottom:.3rem;border-bottom:1px solid var(--border)">${accountName}</div>`;
       for (const m of props) {
         const propIdNum = m.property_id.replace('properties/', '');
+        const safeId = propIdNum.replace(/[^a-z0-9]/gi, '-');
         html += `<div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green);border-radius:6px;padding:.85rem 1.25rem;margin-bottom:.6rem">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
             <div>
               <div style="font-weight:600;font-size:.93rem;margin-bottom:.2rem">${m.property_name}</div>
-              <div style="display:flex;align-items:center;gap:.75rem;font-size:.78rem;color:var(--text-dim);font-family:var(--mono)">
+              <div style="display:flex;align-items:center;gap:.75rem;font-size:.78rem;color:var(--text-dim);font-family:var(--mono);flex-wrap:wrap">
                 <span style="color:var(--accent)">${m.measurement_id}</span>
                 <span>${m.stream_name}</span>
                 ${m.default_uri ? '<span>' + m.default_uri + '</span>' : ''}
               </div>
-              <div style="font-size:.75rem;color:var(--text-dim);margin-top:.2rem">GTM: ${m.gtm_tag_names.join(', ')}</div>
+              <div style="font-size:.75rem;color:var(--text-dim);margin-top:.2rem">GTM tag: ${m.gtm_tag_names.join(', ')}</div>
             </div>
-            <button onclick="runDetailCheck('${m.property_id}', '${m.property_name}', this)"
+            <button onclick="runPageCheck('${m.property_id}', '${m.measurement_id}', '${m.default_uri}', '${safeId}', this)"
               style="background:var(--accent);border:none;color:#fff;font-family:var(--mono);font-size:.75rem;padding:.4rem .85rem;border-radius:4px;cursor:pointer;font-weight:600;white-space:nowrap;flex-shrink:0">
               Check GTM tags
             </button>
           </div>
-          <div class="detail-result" id="detail-${propIdNum}" style="display:none;margin-top:.75rem;border-top:1px solid var(--border);padding-top:.75rem"></div>
+          <div id="detail-${safeId}" style="display:none;margin-top:.75rem;border-top:1px solid var(--border);padding-top:.75rem"></div>
         </div>`;
       }
     }
@@ -385,56 +396,98 @@ function renderGAOverview(data) {
   div.innerHTML = html;
 }
 
-async function runDetailCheck(propertyId, propertyName, btn) {
-  const propIdNum = propertyId.replace('properties/', '');
-  const resultDiv = document.getElementById('detail-' + propIdNum);
+async function runPageCheck(propertyId, measurementId, defaultUri, safeId, btn) {
+  const resultDiv = document.getElementById('detail-' + safeId);
   resultDiv.style.display = 'block';
-  resultDiv.innerHTML = '<p style="color:var(--text-dim);font-size:.83rem">&#9203; Checking...</p>';
-  btn.disabled = true; btn.textContent = 'Checking...';
 
-  try {
-    const r = await fetch('/audit/{{ account_id }}/{{ container_id }}/ga-check?property_id=' + encodeURIComponent(propertyId));
-    const data = await r.json();
-    if (data.error) { resultDiv.innerHTML = '<p style="color:var(--red)">' + data.error + '</p>'; return; }
+  // GTMコンテナIDを取得（URL中のGTM-XXXXXを使う）
+  const gtmContainerId = 'GTM-{{ container_id }}';
 
-    const issues = data.stream_results.filter(r => r.issues.length > 0);
-    const ok = data.stream_results.filter(r => r.issues.length === 0);
-    let html = '';
+  // base_url: default_uriからスキームとホストを取得
+  let baseUrl = defaultUri;
+  if (baseUrl && !baseUrl.startsWith('http')) baseUrl = 'https://' + baseUrl;
+  if (!baseUrl) baseUrl = 'https://example.com';
+  // パスを除いたオリジンだけ取得
+  try { baseUrl = new URL(baseUrl).origin; } catch(e) {}
 
-    if (issues.length) {
-      html += '<div style="font-size:.75rem;font-weight:600;color:var(--red);margin-bottom:.4rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Issues</div>';
-      for (const s of issues) {
-        html += `<div style="background:var(--surface2);border:1px solid rgba(247,79,79,.3);border-radius:4px;padding:.5rem .85rem;margin-bottom:.4rem;font-size:.82rem">
-          ${s.issues.map(i => '<span style="color:var(--red)">&#9888; ' + i + '</span>').join('<br>')}
-        </div>`;
+  btn.disabled = true;
+  btn.textContent = 'Checking...';
+
+  // 進捗UI
+  resultDiv.innerHTML = `
+    <div>
+      <div style="font-size:.82rem;color:var(--text-dim);margin-bottom:.5rem" id="page-status-${safeId}">Fetching URL list from GA4...</div>
+      <div style="background:var(--border);border-radius:3px;height:4px;overflow:hidden;margin-bottom:.4rem">
+        <div id="page-bar-${safeId}" style="width:0%;height:100%;background:var(--accent);transition:width .2s"></div>
+      </div>
+      <div style="font-size:.72rem;color:var(--text-dim);font-family:var(--mono)" id="page-label-${safeId}"></div>
+      <div id="page-results-${safeId}" style="margin-top:.75rem"></div>
+    </div>
+  `;
+
+  const params = new URLSearchParams({
+    property_id: propertyId,
+    gtm_container_id: gtmContainerId,
+    base_url: baseUrl,
+  });
+
+  const es = new EventSource('/audit/{{ account_id }}/{{ container_id }}/ga-page-check?' + params);
+
+  es.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    const statusEl = document.getElementById('page-status-' + safeId);
+    const barEl = document.getElementById('page-bar-' + safeId);
+    const labelEl = document.getElementById('page-label-' + safeId);
+    const resultsEl = document.getElementById('page-results-' + safeId);
+
+    if (data.type === 'status') {
+      if (statusEl) statusEl.textContent = data.message;
+    } else if (data.type === 'progress') {
+      if (barEl) barEl.style.width = data.percent + '%';
+      if (labelEl) labelEl.textContent = data.completed + ' / ' + data.total + ' pages checked';
+    } else if (data.type === 'done') {
+      es.close();
+      btn.disabled = false;
+      btn.textContent = 'Re-check';
+      const s = data.summary;
+      let html = `<div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:.75rem">
+        <span style="font-size:.8rem;padding:.25rem .6rem;border-radius:3px;background:rgba(34,212,122,.12);color:var(--green);border:1px solid rgba(34,212,122,.3);font-family:var(--mono)">✓ ${s.ok} OK</span>
+        ${s.issues > 0 ? '<span style="font-size:.8rem;padding:.25rem .6rem;border-radius:3px;background:rgba(247,195,79,.12);color:var(--yellow);border:1px solid rgba(247,195,79,.3);font-family:var(--mono)">⚠ ' + s.issues + ' issues</span>' : ''}
+        ${s.errors > 0 ? '<span style="font-size:.8rem;padding:.25rem .6rem;border-radius:3px;background:rgba(247,79,79,.12);color:var(--red);border:1px solid rgba(247,79,79,.3);font-family:var(--mono)">✕ ' + s.errors + ' errors</span>' : ''}
+        <span style="font-size:.78rem;color:var(--text-dim);padding:.25rem 0">${s.total} pages total</span>
+      </div>`;
+
+      if (data.results.length === 0) {
+        html += '<div style="font-size:.83rem;color:var(--green)">✓ All pages have GTM tag correctly installed.</div>';
+      } else {
+        for (const r of data.results) {
+          const issueColor = r.error ? 'var(--red)' : 'var(--yellow)';
+          const allIssues = r.error ? [r.error] : r.issues;
+          html += `<div style="background:var(--surface2);border:1px solid var(--border);border-left:2px solid ${issueColor};border-radius:4px;padding:.5rem .85rem;margin-bottom:.4rem">
+            <div style="font-family:var(--mono);font-size:.78rem;color:var(--accent);margin-bottom:.2rem">${r.url}</div>
+            ${allIssues.map(i => '<div style="font-size:.8rem;color:' + issueColor + '">⚠ ' + i + '</div>').join('')}
+            ${r.gtm_ids && r.gtm_ids.length ? '<div style="font-size:.73rem;color:var(--text-dim);margin-top:.2rem;font-family:var(--mono)">Found: ' + r.gtm_ids.join(', ') + '</div>' : ''}
+          </div>`;
+        }
       }
+      if (resultsEl) resultsEl.innerHTML = html;
+      if (barEl) barEl.style.width = '100%';
+      if (barEl) barEl.style.background = 'var(--green)';
+      if (labelEl) labelEl.textContent = '';
+      if (statusEl) statusEl.textContent = 'Done.';
+    } else if (data.type === 'error') {
+      es.close();
+      btn.disabled = false;
+      btn.textContent = 'Check GTM tags';
+      resultDiv.innerHTML += '<p style="color:var(--red);font-size:.83rem">Error: ' + data.message + '</p>';
     }
-    if (ok.length) {
-      html += '<div style="font-size:.75rem;font-weight:600;color:var(--green);margin:.6rem 0 .4rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">OK</div>';
-      for (const s of ok) {
-        html += `<div style="background:var(--surface2);border:1px solid rgba(34,212,122,.2);border-radius:4px;padding:.5rem .85rem;margin-bottom:.35rem;font-size:.82rem;display:flex;gap:.75rem;align-items:center">
-          <span style="color:var(--green)">&#10003;</span>
-          <span style="font-family:var(--mono);color:var(--accent)">${s.measurement_id}</span>
-          <span style="color:var(--text-dim)">${s.stream_name}</span>
-          ${s.default_uri ? '<span style="color:var(--text-dim)">' + s.default_uri + '</span>' : ''}
-          ${s.gtm_tag_names.length ? '<span style="margin-left:auto;color:var(--text-dim);font-family:var(--mono);font-size:.75rem">' + s.gtm_tag_names[0] + '</span>' : ''}
-        </div>`;
-      }
-    }
+  };
 
-    resultDiv.innerHTML = html;
-    btn.textContent = 'Re-check';
+  es.onerror = () => {
+    es.close();
     btn.disabled = false;
-
-    // タブバッジ更新
-    const totalIssues = document.querySelectorAll('.detail-result [style*="color:var(--red)"]').length;
-    const badge = document.getElementById('ga-issue-count');
-    if (badge && issues.length > 0) { badge.style.display = ''; badge.textContent = issues.length; }
-  } catch(e) {
-    resultDiv.innerHTML = '<p style="color:var(--red)">Failed: ' + e.message + '</p>';
-    btn.disabled = false; btn.textContent = 'Check GTM tags';
-  }
+    btn.textContent = 'Check GTM tags';
+  };
 }
 {% endif %}
 </script>
-{% endblock %}
