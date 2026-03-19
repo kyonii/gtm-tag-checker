@@ -96,7 +96,9 @@ async def audit(request: Request, account_id: str, container_id: str,
     ga = GAClient(access_token=user.access_token)
     try:
         ga_properties = await ga.list_properties()
-    except Exception:
+        print(f"GA properties fetched: {len(ga_properties)}")
+    except Exception as e:
+        print(f"GA ERROR: {type(e).__name__}: {e}")
         ga_properties = []
     return templates.TemplateResponse("report.html", {
         "request": request, "user": user,
