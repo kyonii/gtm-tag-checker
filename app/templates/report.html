@@ -283,11 +283,18 @@
   <div style="margin-bottom:1.5rem">
     <label style="font-size:.82rem;color:var(--text-dim);font-family:var(--mono);display:block;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.08em">Select GA4 Property</label>
     <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
-      <select id="ga-property-select" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:.82rem;padding:.45rem .75rem;border-radius:4px;cursor:pointer;min-width:280px">
+      <select id="ga-property-select" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:.82rem;padding:.45rem .75rem;border-radius:4px;cursor:pointer;min-width:320px">
         <option value="">-- Select a property --</option>
+        {% set ns = namespace(current_account=None) %}
         {% for p in ga_properties %}
-        <option value="{{ p.property_id }}">{{ p.display_name }} ({{ p.property_id }})</option>
+          {% if p.account_name != ns.current_account %}
+            {% if ns.current_account is not none %}</optgroup>{% endif %}
+            {% set ns.current_account = p.account_name %}
+            <optgroup label="{{ p.account_name }}">
+          {% endif %}
+          <option value="{{ p.property_id }}">{{ p.display_name }}</option>
         {% endfor %}
+        {% if ga_properties %}</optgroup>{% endif %}
       </select>
       <button onclick="runGACheck()" style="background:var(--accent);border:none;color:#fff;font-family:var(--mono);font-size:.8rem;padding:.45rem 1rem;border-radius:4px;cursor:pointer;font-weight:600">Run Check</button>
     </div>
