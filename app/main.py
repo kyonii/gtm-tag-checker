@@ -262,7 +262,7 @@ async def ga_page_check(
                     "url": r.url,
                     "status": r.status,
                     "gtm_ids": r.gtm_container_ids,
-                    "has_noscript": r.recommended_noscript,
+                    
                     "issues": issues,
                     "error": r.error,
                 }
