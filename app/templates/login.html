@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GTM Tag Checker – Login</title>
+  <title>GTM Tag Checker - Login</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
     :root{--bg:#0a0a0f;--surface:#111118;--border:#2a2a3a;--accent:#4f6ef7;--text:#e8e8f0;--text-dim:#8888aa;--red:#f74f4f;--mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif}
@@ -38,11 +38,16 @@
     <div class="error-msg">
       {% set err = request.query_params.get('error') %}
       {% if err == 'unauthorized' %}Your account is not authorized.
-      {% elif err == 'invalid_state' %}Security check failed. Please try again.
+      {% elif err == 'invalid_state' %}Session expired. Please sign in again.
       {% else %}Authentication error: {{ err }}{% endif %}
     </div>
     {% endif %}
     <p class="scope-note">Requires read-only access to your GTM containers.<br>No data is stored on our servers.</p>
   </div>
+  <script>
+    if (new URLSearchParams(location.search).get('error') === 'invalid_state') {
+      document.cookie = 'session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+    }
+  </script>
 </body>
 </html>
