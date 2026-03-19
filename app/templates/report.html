@@ -431,7 +431,7 @@ var runPageCheck = async function(propertyId, measurementId, defaultUri, safeId,
   const resultDiv = document.getElementById('detail-' + safeId);
   resultDiv.style.display = 'block';
 
-  const gtmContainerId = '{{ report.container_id }}';
+  const gtmContainerId = '{{ gtm_public_id }}';
   let baseUrl = defaultUri || '';
   if (baseUrl && !baseUrl.startsWith('http')) baseUrl = 'https://' + baseUrl;
   try { baseUrl = new URL(baseUrl).origin; } catch(e) { baseUrl = ''; }
