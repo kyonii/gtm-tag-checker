@@ -527,6 +527,19 @@ var runPageCheck = async function(propertyId, measurementId, defaultUri, safeId,
   }
 }
 
+
+var switchPageTab = function(safeId, tab) {
+  ['ok','issues','errors'].forEach(t => {
+    const panel = document.getElementById(safeId + '-tab-' + t + '-panel');
+    const btn = document.getElementById(safeId + '-tab-' + t + '-btn');
+    if (panel) panel.style.display = t === tab ? 'block' : 'none';
+    if (btn) {
+      const colors = {ok: ['var(--green)','rgba(34,212,122,.12)','rgba(34,212,122,.3)'], issues: ['var(--yellow)','rgba(247,195,79,.12)','rgba(247,195,79,.3)'], errors: ['var(--red)','rgba(247,79,79,.12)','rgba(247,79,79,.3)']};
+      const [color, bg, border] = colors[t] || colors.ok;
+      btn.style.background = t === tab ? bg : 'transparent';
+    }
+  });
+};
 } // end if _hasGAProperties
 </script>
 {% endblock %}
