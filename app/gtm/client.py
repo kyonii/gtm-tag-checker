@@ -51,7 +51,9 @@ class GTMClient:
         triggers = [GTMTrigger(trigger_id=tr["triggerId"], name=tr["name"], type=tr["type"])
                     for tr in triggers_data.get("trigger", [])]
         return GTMContainer(account_id=account_id, container_id=container_id,
-                            name=info.get("name", container_id), tags=tags, triggers=triggers)
+                            name=info.get("name", container_id),
+                            public_id=info.get("publicId", ""),
+                            tags=tags, triggers=triggers)
 
     async def _get_latest_workspace_path(self, account_id: str, container_id: str) -> str:
         data = await self._get(f"accounts/{account_id}/containers/{container_id}/workspaces")
