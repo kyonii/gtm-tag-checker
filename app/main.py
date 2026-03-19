@@ -113,6 +113,7 @@ async def audit(request: Request, account_id: str, container_id: str,
         "ga_properties": ga_properties,
         "gtm_measurement_ids": gtm_ids,
         "current_path": f"/audit/{account_id}/{container_id}",
+        "gtm_public_id": container.public_id if hasattr(container, 'public_id') else container_id,
     })
 
 @app.get("/audit/{account_id}/{container_id}/ga-overview")
