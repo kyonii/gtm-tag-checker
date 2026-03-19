@@ -1,6 +1,6 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
-from app.ga.client import GAProperty, GAStream
+from app.ga.client import GAProperty
 from app.gtm.models import GTMContainer
 
 
@@ -33,23 +33,49 @@ class GACheckReport:
         return [r for r in self.stream_results if r.found_in_gtm and not r.issues]
 
 
-def check_ga_gtm_alignment(container: GTMContainer, property: GAProperty) -> GACheckReport:
-    """GAプロパティのストリームとGTMコンテナを照合する"""
+def _collect_measurement_ids(container: GTMContainer) -> dict[str, list[str]]:
+    """GTMコンテナから測定IDを収集する。
+    対象:
+    - googtag (Google タグ): tagId パラメータ
+    - gaawc (GA4 設定タグ): measurementId パラメータ
+    - gaawe (GA4 イベントタグ): measurementId パラメータ（直接指定のみ）
+    変数参照 ({{...}}) は除外する。
+    """
+    result: dict[str, list[str]] = {}
 
-    # GTMコンテナ内のGoogleタグ・GA4設定タグの測定IDを収集
-    gtm_measurement_ids: dict[str, list[str]] = {}  # measurement_id -> [tag_name]
     for tag in container.tags:
         if tag.paused:
             continue
-        for param in tag.parameters:
-            key = param.get("key", "")
-            val = param.get("value", "")
-            if key == "measurementId" and val and not val.startswith("{{"):
-                if val not in gtm_measurement_ids:
-                    gtm_measurement_ids[val] = []
-                gtm_measurement_ids[val].append(tag.name)
 
-    # ストリームごとに照合
+        candidate_ids: list[str] = []
+
+        if tag.type == "googtag":
+            # Google タグ: tagId パラメータに測定IDが入る
+            for p in tag.parameters:
+                if p.get("key") == "tagId":
+                    val = p.get("value", "")
+                    if val and not val.startswith("{{"):
+                        candidate_ids.append(val)
+
+        elif tag.type in ("gaawc", "gaawe"):
+            # GA4 設定タグ・イベントタグ: measurementId パラメータ
+            for p in tag.parameters:
+                if p.get("key") == "measurementId":
+                    val = p.get("value", "")
+                    if val and not val.startswith("{{"):
+                        candidate_ids.append(val)
+
+        for mid in candidate_ids:
+            if mid not in result:
+                result[mid] = []
+            result[mid].append(tag.name)
+
+    return result
+
+
+def check_ga_gtm_alignment(container: GTMContainer, property: GAProperty) -> GACheckReport:
+    gtm_measurement_ids = _collect_measurement_ids(container)
+
     stream_results: list[StreamCheckResult] = []
     for stream in property.streams:
         mid = stream.measurement_id
