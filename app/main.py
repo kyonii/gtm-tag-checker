@@ -106,6 +106,16 @@ async def audit(request: Request, account_id: str, container_id: str,
         print(f"GA ERROR: {type(e).__name__}: {e}")
         ga_properties = []
     gtm_ids = collect_measurement_ids(container)
+    # public_id (GTM-XXXXX) を list_containers から取得
+    gtm_public_id = ""
+    try:
+        all_containers = await GTMClient(access_token=user.access_token).list_containers()
+        for c in all_containers:
+            if c.container_id == container_id:
+                gtm_public_id = c.public_id
+                break
+    except Exception:
+        pass
     return templates.TemplateResponse("report.html", {
         "request": request, "user": user,
         "report": report, "Severity": Severity,
@@ -113,7 +123,7 @@ async def audit(request: Request, account_id: str, container_id: str,
         "ga_properties": ga_properties,
         "gtm_measurement_ids": gtm_ids,
         "current_path": f"/audit/{account_id}/{container_id}",
-        "gtm_public_id": container.public_id if hasattr(container, 'public_id') else container_id,
+        "gtm_public_id": gtm_public_id or container_id,
     })
 
 @app.get("/audit/{account_id}/{container_id}/ga-overview")
