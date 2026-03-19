@@ -308,35 +308,47 @@ function switchTab(name, btn) {
 
 var _hasGAProperties = {{ "true" if ga_properties else "false" }};
 if (_hasGAProperties) {
-async function loadGAOverview() {
+function loadGAOverview() {
   const div = document.getElementById('ga-overview-content');
-
-  // 進捗表示
   div.innerHTML = `
     <div style="padding:1.5rem 0">
-      <div style="font-size:.85rem;color:var(--text-dim);margin-bottom:.75rem" id="ga-status-msg">Matching GTM IDs with GA properties...</div>
-      <div style="background:var(--border);border-radius:3px;height:4px;overflow:hidden">
+      <div style="font-size:.85rem;color:var(--text-dim);margin-bottom:.6rem" id="ga-status-msg">Fetching GA properties...</div>
+      <div style="background:var(--border);border-radius:3px;height:5px;overflow:hidden;margin-bottom:.35rem">
         <div id="ga-progress-bar" style="width:0%;height:100%;background:var(--accent);transition:width .3s"></div>
       </div>
-      <div style="font-size:.75rem;color:var(--text-dim);margin-top:.4rem;font-family:var(--mono)" id="ga-progress-label"></div>
+      <div style="font-size:.75rem;color:var(--text-dim);font-family:var(--mono)" id="ga-progress-label">0 / ? properties</div>
     </div>
   `;
 
-  try {
-    const r = await fetch('/audit/{{ account_id }}/{{ container_id }}/ga-overview');
-    const data = await r.json();
-    if (data.error) { div.innerHTML = '<p style="color:var(--red);padding:1rem">' + data.error + '</p>'; return; }
-    renderGAOverview(data);
-  } catch(e) {
-    div.innerHTML = '<p style="color:var(--red);padding:1rem">Failed: ' + e.message + '</p>';
-  }
+  const es = new EventSource('/audit/{{ account_id }}/{{ container_id }}/ga-overview');
+  es.onmessage = (e) => {
+    const data = JSON.parse(e.data);
+    const statusEl = document.getElementById('ga-status-msg');
+    const barEl = document.getElementById('ga-progress-bar');
+    const labelEl = document.getElementById('ga-progress-label');
+
+    if (data.type === 'total') {
+      if (labelEl) labelEl.textContent = '0 / ' + data.total + ' properties';
+    } else if (data.type === 'progress') {
+      if (barEl) barEl.style.width = data.percent + '%';
+      if (labelEl) labelEl.textContent = data.current + ' / ' + data.total + ' properties (' + data.percent + '%)';
+      if (statusEl) statusEl.textContent = 'Checking: ' + data.property_name;
+    } else if (data.type === 'done') {
+      es.close();
+      if (barEl) { barEl.style.width = '100%'; barEl.style.background = 'var(--green)'; }
+      renderGAOverview(data);
+    } else if (data.type === 'error') {
+      es.close();
+      div.innerHTML = '<p style="color:var(--red);padding:1rem">Error: ' + data.message + '</p>';
+    }
+  };
+  es.onerror = () => { es.close(); };
 }
 
 function renderGAOverview(data) {
   const div = document.getElementById('ga-overview-content');
   let html = '';
 
-  // 権限あり
   html += `<div style="font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:.6rem;display:flex;align-items:center;gap:.5rem">
     <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span>
     Access granted — matched with GTM (${data.matched.length})
@@ -353,8 +365,7 @@ function renderGAOverview(data) {
     for (const [accountName, props] of Object.entries(byAccount)) {
       html += `<div style="font-size:.78rem;color:var(--text-dim);font-family:var(--mono);margin:.75rem 0 .35rem;padding-bottom:.3rem;border-bottom:1px solid var(--border)">${accountName}</div>`;
       for (const m of props) {
-        const propIdNum = m.property_id.replace('properties/', '');
-        const safeId = propIdNum.replace(/[^a-z0-9]/gi, '-');
+        const safeId = m.property_id.replace(/[^a-z0-9]/gi, '-');
         html += `<div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green);border-radius:6px;padding:.85rem 1.25rem;margin-bottom:.6rem">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
             <div>
@@ -377,7 +388,6 @@ function renderGAOverview(data) {
     }
   }
 
-  // 権限なし
   html += `<div style="font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin:1.5rem 0 .6rem;display:flex;align-items:center;gap:.5rem">
     <span style="width:8px;height:8px;border-radius:50%;background:var(--text-dim);display:inline-block"></span>
     No access / unknown (${data.unmatched.length})
@@ -401,24 +411,19 @@ async function runPageCheck(propertyId, measurementId, defaultUri, safeId, btn) 
   const resultDiv = document.getElementById('detail-' + safeId);
   resultDiv.style.display = 'block';
 
-  // GTMコンテナIDを取得（URL中のGTM-XXXXXを使う）
   const gtmContainerId = 'GTM-{{ container_id }}';
-
-  // base_url: default_uriからスキームとホストを取得
   let baseUrl = defaultUri;
   if (baseUrl && !baseUrl.startsWith('http')) baseUrl = 'https://' + baseUrl;
-  if (!baseUrl) baseUrl = 'https://example.com';
-  // パスを除いたオリジンだけ取得
+  if (!baseUrl) baseUrl = '';
   try { baseUrl = new URL(baseUrl).origin; } catch(e) {}
 
   btn.disabled = true;
   btn.textContent = 'Checking...';
 
-  // 進捗UI
   resultDiv.innerHTML = `
     <div>
       <div style="font-size:.82rem;color:var(--text-dim);margin-bottom:.5rem" id="page-status-${safeId}">Fetching URL list from GA4...</div>
-      <div style="background:var(--border);border-radius:3px;height:4px;overflow:hidden;margin-bottom:.4rem">
+      <div style="background:var(--border);border-radius:3px;height:4px;overflow:hidden;margin-bottom:.35rem">
         <div id="page-bar-${safeId}" style="width:0%;height:100%;background:var(--accent);transition:width .2s"></div>
       </div>
       <div style="font-size:.72rem;color:var(--text-dim);font-family:var(--mono)" id="page-label-${safeId}"></div>
@@ -426,12 +431,7 @@ async function runPageCheck(propertyId, measurementId, defaultUri, safeId, btn) 
     </div>
   `;
 
-  const params = new URLSearchParams({
-    property_id: propertyId,
-    gtm_container_id: gtmContainerId,
-    base_url: baseUrl,
-  });
-
+  const params = new URLSearchParams({ property_id: propertyId, gtm_container_id: gtmContainerId, base_url: baseUrl });
   const es = new EventSource('/audit/{{ account_id }}/{{ container_id }}/ga-page-check?' + params);
 
   es.onmessage = (e) => {
@@ -445,11 +445,10 @@ async function runPageCheck(propertyId, measurementId, defaultUri, safeId, btn) 
       if (statusEl) statusEl.textContent = data.message;
     } else if (data.type === 'progress') {
       if (barEl) barEl.style.width = data.percent + '%';
-      if (labelEl) labelEl.textContent = data.completed + ' / ' + data.total + ' pages checked';
+      if (labelEl) labelEl.textContent = data.completed + ' / ' + data.total + ' pages (' + data.percent + '%)';
     } else if (data.type === 'done') {
       es.close();
-      btn.disabled = false;
-      btn.textContent = 'Re-check';
+      btn.disabled = false; btn.textContent = 'Re-check';
       const s = data.summary;
       let html = `<div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:.75rem">
         <span style="font-size:.8rem;padding:.25rem .6rem;border-radius:3px;background:rgba(34,212,122,.12);color:var(--green);border:1px solid rgba(34,212,122,.3);font-family:var(--mono)">✓ ${s.ok} OK</span>
@@ -457,38 +456,31 @@ async function runPageCheck(propertyId, measurementId, defaultUri, safeId, btn) 
         ${s.errors > 0 ? '<span style="font-size:.8rem;padding:.25rem .6rem;border-radius:3px;background:rgba(247,79,79,.12);color:var(--red);border:1px solid rgba(247,79,79,.3);font-family:var(--mono)">✕ ' + s.errors + ' errors</span>' : ''}
         <span style="font-size:.78rem;color:var(--text-dim);padding:.25rem 0">${s.total} pages total</span>
       </div>`;
-
       if (data.results.length === 0) {
         html += '<div style="font-size:.83rem;color:var(--green)">✓ All pages have GTM tag correctly installed.</div>';
       } else {
         for (const r of data.results) {
-          const issueColor = r.error ? 'var(--red)' : 'var(--yellow)';
-          const allIssues = r.error ? [r.error] : r.issues;
-          html += `<div style="background:var(--surface2);border:1px solid var(--border);border-left:2px solid ${issueColor};border-radius:4px;padding:.5rem .85rem;margin-bottom:.4rem">
+          const col = r.error ? 'var(--red)' : 'var(--yellow)';
+          const issues = r.error ? [r.error] : r.issues;
+          html += `<div style="background:var(--surface2);border:1px solid var(--border);border-left:2px solid ${col};border-radius:4px;padding:.5rem .85rem;margin-bottom:.4rem">
             <div style="font-family:var(--mono);font-size:.78rem;color:var(--accent);margin-bottom:.2rem">${r.url}</div>
-            ${allIssues.map(i => '<div style="font-size:.8rem;color:' + issueColor + '">⚠ ' + i + '</div>').join('')}
+            ${issues.map(i => '<div style="font-size:.8rem;color:' + col + '">⚠ ' + i + '</div>').join('')}
             ${r.gtm_ids && r.gtm_ids.length ? '<div style="font-size:.73rem;color:var(--text-dim);margin-top:.2rem;font-family:var(--mono)">Found: ' + r.gtm_ids.join(', ') + '</div>' : ''}
           </div>`;
         }
       }
-      if (resultsEl) resultsEl.innerHTML = html;
-      if (barEl) barEl.style.width = '100%';
-      if (barEl) barEl.style.background = 'var(--green)';
+      if (barEl) { barEl.style.width = '100%'; barEl.style.background = 'var(--green)'; }
       if (labelEl) labelEl.textContent = '';
       if (statusEl) statusEl.textContent = 'Done.';
+      if (resultsEl) resultsEl.innerHTML = html;
     } else if (data.type === 'error') {
       es.close();
-      btn.disabled = false;
-      btn.textContent = 'Check GTM tags';
-      resultDiv.innerHTML += '<p style="color:var(--red);font-size:.83rem">Error: ' + data.message + '</p>';
+      btn.disabled = false; btn.textContent = 'Check GTM tags';
+      if (statusEl) statusEl.textContent = 'Error: ' + data.message;
+      if (statusEl) statusEl.style.color = 'var(--red)';
     }
   };
-
-  es.onerror = () => {
-    es.close();
-    btn.disabled = false;
-    btn.textContent = 'Check GTM tags';
-  };
+  es.onerror = () => { es.close(); btn.disabled = false; btn.textContent = 'Check GTM tags'; };
 }
 } // end if _hasGAProperties
 </script>
