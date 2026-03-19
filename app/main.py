@@ -51,7 +51,9 @@ async def auth_callback(request: Request, code: str = "", state: str = "", error
     session = get_session(request)
     saved_state = session.get("oauth_state", "")
     if not saved_state or state != saved_state:
-        return RedirectResponse("/login?error=invalid_state", status_code=302)
+        response = RedirectResponse("/login?error=invalid_state", status_code=302)
+        clear_session(response)
+        return response
     tokens = await exchange_code_for_tokens(code)
     user_info = await fetch_user_info(tokens["access_token"])
     allowed = settings.allowed_email_set
