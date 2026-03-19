@@ -11,10 +11,10 @@ from app.auth.session import clear_session, get_session, set_session
 from app.checks import run_audit
 from app.checks.models import Severity
 from app.config import settings
-from app.ga.checker import check_ga_gtm_alignment, collect_measurement_ids
+from app.ga.checker import collect_measurement_ids
 from app.ga.client import GAClient
 from app.ga.data_client import GADataClient
-from app.ga.page_checker import check_pages_parallel
+from app.ga.page_checker import check_page
 from app.gtm.client import GTMClient
 
 app = FastAPI(title="GTM Tag Checker", docs_url=None, redoc_url=None)
@@ -114,43 +114,66 @@ async def audit(request: Request, account_id: str, container_id: str,
     })
 
 @app.get("/audit/{account_id}/{container_id}/ga-overview")
-async def ga_overview(request: Request, account_id: str, container_id: str,
-                      user: AuthenticatedUser = Depends(get_current_user)) -> JSONResponse:
-    gtm = GTMClient(access_token=user.access_token)
-    ga = GAClient(access_token=user.access_token)
-    try:
-        container = await gtm.get_container(account_id=account_id, container_id=container_id)
-        gtm_ids = collect_measurement_ids(container)
-        ga_properties = await ga.list_properties()
-        matched = []
-        matched_mids = set()
-        total = len(ga_properties)
-        for i, prop in enumerate(ga_properties):
-            try:
-                streams = await ga.list_streams(prop.property_id)
-                for stream in streams:
-                    mid = stream.measurement_id
-                    if mid in gtm_ids:
-                        matched.append({
-                            "property_id": prop.property_id,
-                            "property_name": prop.display_name,
-                            "account_name": prop.account_name,
-                            "measurement_id": mid,
-                            "stream_name": stream.display_name,
-                            "default_uri": stream.default_uri,
-                            "gtm_tag_names": gtm_ids[mid],
-                        })
-                        matched_mids.add(mid)
-            except Exception:
-                continue
-        unmatched = [
-            {"measurement_id": mid, "gtm_tag_names": names}
-            for mid, names in gtm_ids.items()
-            if mid not in matched_mids
-        ]
-        return JSONResponse({"matched": matched, "unmatched": unmatched, "total": total})
-    except Exception as e:
-        return JSONResponse({"error": str(e)}, status_code=500)
+async def ga_overview_sse(request: Request, account_id: str, container_id: str,
+                          user: AuthenticatedUser = Depends(get_current_user)) -> StreamingResponse:
+    """プロパティを1件ずつ処理してSSEで進捗を返す"""
+
+    async def event_stream():
+        def sse(data: dict) -> str:
+            return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+        gtm = GTMClient(access_token=user.access_token)
+        ga = GAClient(access_token=user.access_token)
+
+        try:
+            container = await gtm.get_container(account_id=account_id, container_id=container_id)
+            gtm_ids = collect_measurement_ids(container)
+            ga_properties = await ga.list_properties()
+            total = len(ga_properties)
+
+            yield sse({"type": "total", "total": total})
+
+            matched = []
+            matched_mids = set()
+
+            for i, prop in enumerate(ga_properties):
+                yield sse({
+                    "type": "progress",
+                    "current": i + 1,
+                    "total": total,
+                    "percent": round((i + 1) / total * 100),
+                    "property_name": prop.display_name,
+                })
+                try:
+                    streams = await ga.list_streams(prop.property_id)
+                    for stream in streams:
+                        mid = stream.measurement_id
+                        if mid in gtm_ids:
+                            matched.append({
+                                "property_id": prop.property_id,
+                                "property_name": prop.display_name,
+                                "account_name": prop.account_name,
+                                "measurement_id": mid,
+                                "stream_name": stream.display_name,
+                                "default_uri": stream.default_uri,
+                                "gtm_tag_names": gtm_ids[mid],
+                            })
+                            matched_mids.add(mid)
+                except Exception:
+                    pass
+
+            unmatched = [
+                {"measurement_id": mid, "gtm_tag_names": names}
+                for mid, names in gtm_ids.items()
+                if mid not in matched_mids
+            ]
+
+            yield sse({"type": "done", "matched": matched, "unmatched": unmatched})
+
+        except Exception as e:
+            yield sse({"type": "error", "message": str(e)})
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 @app.get("/audit/{account_id}/{container_id}/ga-page-check")
 async def ga_page_check(
@@ -170,7 +193,6 @@ async def ga_page_check(
 
         try:
             yield sse({"type": "status", "message": "Fetching page URLs from GA4..."})
-
             data_client = GADataClient(access_token=user.access_token)
             full_property_id = property_id if property_id.startswith("properties/") else f"properties/{property_id}"
 
@@ -187,58 +209,37 @@ async def ga_page_check(
                 yield sse({"type": "done", "results": [], "summary": {"total": 0, "ok": 0, "issues": 0, "errors": 0}})
                 return
 
-            # 並列fetchで全ページチェック（進捗をSSEで送信）
-            semaphore = asyncio.Semaphore(10)
             import httpx
             from urllib.parse import urljoin
-            from app.ga.page_checker import check_page, _GTM_SCRIPT_RE, _GTM_NOSCRIPT_RE, PageCheckResult
 
-            results = []
-            completed = 0
-
+            semaphore = asyncio.Semaphore(10)
             headers = {"User-Agent": "GTM-Tag-Checker/1.0 (audit tool)", "Accept": "text/html"}
 
-            async def check_one(session, path):
-                nonlocal completed
-                async with semaphore:
-                    full_url = urljoin(base_url if base_url.endswith('/') else base_url + '/', path.lstrip('/'))
-                    result = await check_page(session, full_url)
-                    issues = result.check_against(gtm_container_id)
-                    completed += 1
-                    # 10件ごとまたは最初の1件は進捗を送信
-                    if completed == 1 or completed % 10 == 0 or completed == total:
-                        yield_data = {
-                            "type": "progress",
-                            "completed": completed,
-                            "total": total,
-                            "percent": round(completed / total * 100),
-                        }
-                        results.append((result, issues, yield_data))
-                    else:
-                        results.append((result, issues, None))
+            done_results = []
+            batch_size = 20
 
-            # asyncio.gatherだとyieldできないため順次処理+並列semaphore
             async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=10) as session:
-                tasks = [check_one(session, path) for path in page_paths]
-                # 進捗付き並列実行
-                done_results = []
-                batch_size = 50
                 for i in range(0, len(page_paths), batch_size):
                     batch = page_paths[i:i+batch_size]
-                    batch_results = await asyncio.gather(*[
-                        _check_single(session, path, gtm_container_id, base_url, semaphore)
-                        for path in batch
-                    ])
+                    base = base_url if base_url.endswith('/') else base_url + '/'
+
+                    async def check_one(path):
+                        async with semaphore:
+                            full_url = urljoin(base, path.lstrip('/'))
+                            result = await check_page(session, full_url)
+                            issues = result.check_against(gtm_container_id)
+                            return result, issues
+
+                    batch_results = await asyncio.gather(*[check_one(p) for p in batch])
                     done_results.extend(batch_results)
-                    completed = len(done_results)
+
                     yield sse({
                         "type": "progress",
-                        "completed": completed,
+                        "completed": len(done_results),
                         "total": total,
-                        "percent": round(completed / total * 100),
+                        "percent": round(len(done_results) / total * 100),
                     })
 
-            # 結果集計
             ok_count = sum(1 for r, issues in done_results if not issues and r.is_ok)
             issue_count = sum(1 for r, issues in done_results if issues and r.is_ok)
             error_count = sum(1 for r, issues in done_results if not r.is_ok)
@@ -253,32 +254,16 @@ async def ga_page_check(
                     "error": r.error,
                 }
                 for r, issues in done_results
-                if issues or r.error  # 問題のあるものだけ送信
+                if issues or r.error
             ]
 
             yield sse({
                 "type": "done",
                 "results": final_results,
-                "summary": {
-                    "total": total,
-                    "ok": ok_count,
-                    "issues": issue_count,
-                    "errors": error_count,
-                }
+                "summary": {"total": total, "ok": ok_count, "issues": issue_count, "errors": error_count},
             })
 
         except Exception as e:
             yield sse({"type": "error", "message": str(e)})
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
-
-
-async def _check_single(session, path: str, gtm_container_id: str, base_url: str, semaphore) -> tuple:
-    from urllib.parse import urljoin
-    from app.ga.page_checker import check_page
-    async with semaphore:
-        base = base_url if base_url.endswith('/') else base_url + '/'
-        full_url = urljoin(base, path.lstrip('/'))
-        result = await check_page(session, full_url)
-        issues = result.check_against(gtm_container_id)
-        return result, issues
