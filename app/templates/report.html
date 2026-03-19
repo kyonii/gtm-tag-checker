@@ -310,7 +310,7 @@ var _hasGAProperties = {{ "true" if ga_properties else "false" }};
 if (_hasGAProperties) {
 
 // SSEをfetch streamで受け取るヘルパー
-async function readSSEStream(url, onMessage) {
+var readSSEStream = async function(url, onMessage) {
   const res = await fetch(url, { credentials: 'same-origin' });
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -329,7 +329,7 @@ async function readSSEStream(url, onMessage) {
   }
 }
 
-async function loadGAOverview() {
+var loadGAOverview = async function() {
   const div = document.getElementById('ga-overview-content');
   div.innerHTML = `
     <div style="padding:1.5rem 0">
@@ -365,7 +365,7 @@ async function loadGAOverview() {
   }
 }
 
-function renderGAOverview(data) {
+var renderGAOverview = function(data) {
   const div = document.getElementById('ga-overview-content');
   let html = '';
 
@@ -427,7 +427,7 @@ function renderGAOverview(data) {
   div.innerHTML = html;
 }
 
-async function runPageCheck(propertyId, measurementId, defaultUri, safeId, btn) {
+var runPageCheck = async function(propertyId, measurementId, defaultUri, safeId, btn) {
   const resultDiv = document.getElementById('detail-' + safeId);
   resultDiv.style.display = 'block';
 
