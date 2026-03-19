@@ -279,93 +279,162 @@
 
 <!-- TAB: GA -->
 <div id="tab-ga" class="tab-panel">
-  {% if ga_properties %}
-  <div style="margin-bottom:1.5rem">
-    <label style="font-size:.82rem;color:var(--text-dim);font-family:var(--mono);display:block;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.08em">Select GA4 Property</label>
-    <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
-      <select id="ga-property-select" style="background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:.82rem;padding:.45rem .75rem;border-radius:4px;cursor:pointer;min-width:320px">
-        <option value="">-- Select a property --</option>
-        {% set ns = namespace(current_account=None) %}
-        {% for p in ga_properties %}
-          {% if p.account_name != ns.current_account %}
-            {% if ns.current_account is not none %}</optgroup>{% endif %}
-            {% set ns.current_account = p.account_name %}
-            <optgroup label="{{ p.account_name }}">
-          {% endif %}
-          <option value="{{ p.property_id }}">{{ p.display_name }}</option>
-        {% endfor %}
-        {% if ga_properties %}</optgroup>{% endif %}
-      </select>
-      <button onclick="runGACheck()" style="background:var(--accent);border:none;color:#fff;font-family:var(--mono);font-size:.8rem;padding:.45rem 1rem;border-radius:4px;cursor:pointer;font-weight:600">Run Check</button>
+  <div id="ga-overview-content">
+    {% if ga_properties %}
+    <div style="text-align:center;padding:2rem 0;color:var(--text-dim);font-size:.88rem">
+      <div style="margin-bottom:.75rem">&#9203; Loading GA properties...</div>
     </div>
+    {% else %}
+    <div style="padding:2rem;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:6px;font-size:.9rem">
+      No GA4 properties found, or analytics access was not granted.<br>
+      <a href="/auth/switch?next={{ current_path | default('/') }}" style="color:var(--accent);font-size:.85rem;margin-top:.5rem;display:inline-block">Re-authenticate with analytics scope</a>
+    </div>
+    {% endif %}
   </div>
-  <div id="ga-result"></div>
-  {% else %}
-  <div style="padding:2rem;text-align:center;color:var(--text-dim);border:1px dashed var(--border);border-radius:6px;font-size:.9rem">
-    No GA4 properties found, or analytics access was not granted.<br>
-    <a href="/auth/switch?next={{ current_path | default('/') }}" style="color:var(--accent);font-size:.85rem;margin-top:.5rem;display:inline-block">Re-authenticate with analytics scope</a>
-  </div>
-  {% endif %}
 </div>
 
-<script>
-async function runGACheck() {
-  const sel = document.getElementById('ga-property-select');
-  const propId = sel.value;
-  if (!propId) return;
-  const resultDiv = document.getElementById('ga-result');
-  resultDiv.innerHTML = '<p style="color:var(--text-dim);font-size:.88rem;padding:.5rem 0">&#9203; Checking...</p>';
-  try {
-    const r = await fetch('/audit/{{ account_id }}/{{ container_id }}/ga-check?property_id=' + encodeURIComponent(propId));
-    const data = await r.json();
-    if (data.error) { resultDiv.innerHTML = '<p style="color:var(--red)">' + data.error + '</p>'; return; }
-    renderGAResult(data);
-  } catch(e) { resultDiv.innerHTML = '<p style="color:var(--red)">Request failed: ' + e.message + '</p>'; }
-}
 
-function renderGAResult(data) {
-  const issues = data.stream_results.filter(r => r.issues.length > 0);
-  const ok = data.stream_results.filter(r => r.issues.length === 0);
-  const badge = document.getElementById('ga-issue-count');
-  if (issues.length > 0) { badge.style.display=''; badge.textContent = issues.length; }
-
-  let html = '<div style="font-family:var(--mono);font-size:.75rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem">' + data.property_name + '</div>';
-
-  if (issues.length) {
-    html += '<div style="font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin:1rem 0 .5rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)">Issues</div>';
-    for (const r of issues) {
-      html += `<div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--red);border-radius:6px;padding:.85rem 1.25rem;margin-bottom:.6rem">
-        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.4rem">
-          <span style="font-family:var(--mono);font-size:.78rem;color:var(--accent)">${r.measurement_id}</span>
-          <span style="font-size:.88rem;font-weight:500">${r.stream_name || '(unknown)'}</span>
-          ${r.default_uri ? '<span style="font-size:.78rem;color:var(--text-dim)">' + r.default_uri + '</span>' : ''}
-        </div>
-        ${r.issues.map(i => '<p style="font-size:.82rem;color:var(--red);margin-top:.25rem">&#9888; ' + i + '</p>').join('')}
-        ${r.gtm_tag_names.length ? '<p style="font-size:.78rem;color:var(--text-dim);margin-top:.3rem;font-family:var(--mono)">GTM: ' + r.gtm_tag_names.join(', ') + '</p>' : ''}
-      </div>`;
-    }
-  }
-
-  if (ok.length) {
-    html += '<div style="font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin:1rem 0 .5rem;padding-bottom:.4rem;border-bottom:1px solid var(--border)">OK</div>';
-    for (const r of ok) {
-      html += `<div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green);border-radius:6px;padding:.75rem 1.25rem;margin-bottom:.5rem;opacity:.75;display:flex;align-items:center;gap:.75rem">
-        <span style="font-family:var(--mono);font-size:.78rem;color:var(--accent)">${r.measurement_id}</span>
-        <span style="font-size:.88rem;font-weight:500">${r.stream_name}</span>
-        ${r.default_uri ? '<span style="font-size:.78rem;color:var(--text-dim)">' + r.default_uri + '</span>' : ''}
-        ${r.gtm_tag_names.length ? '<span style="font-size:.78rem;color:var(--text-dim);font-family:var(--mono);margin-left:auto">' + r.gtm_tag_names[0] + '</span>' : ''}
-      </div>`;
-    }
-  }
-  document.getElementById('ga-result').innerHTML = html;
-}
-</script>
 <script>
 function switchTab(name, btn) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   btn.classList.add('active');
+  if (name === 'ga' && !window._gaLoaded) {
+    window._gaLoaded = true;
+    loadGAOverview();
+  }
 }
+
+{% if ga_properties %}
+async function loadGAOverview() {
+  const div = document.getElementById('ga-overview-content');
+  div.innerHTML = '<div style="text-align:center;padding:2rem 0;color:var(--text-dim);font-size:.88rem">&#9203; Matching GTM measurement IDs with GA properties...</div>';
+  try {
+    const r = await fetch('/audit/{{ account_id }}/{{ container_id }}/ga-overview');
+    const data = await r.json();
+    if (data.error) { div.innerHTML = '<p style="color:var(--red);padding:1rem">' + data.error + '</p>'; return; }
+    renderGAOverview(data);
+  } catch(e) {
+    div.innerHTML = '<p style="color:var(--red);padding:1rem">Failed: ' + e.message + '</p>';
+  }
+}
+
+function renderGAOverview(data) {
+  const div = document.getElementById('ga-overview-content');
+  let html = '';
+
+  // 権限あり
+  html += `<div style="font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:.6rem;display:flex;align-items:center;gap:.5rem">
+    <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span>
+    Access granted (${data.matched.length})
+  </div>`;
+
+  if (data.matched.length === 0) {
+    html += '<div style="color:var(--text-dim);font-size:.85rem;padding:.5rem 0 1.5rem">No GTM measurement IDs matched your GA properties.</div>';
+  } else {
+    // アカウントでグルーピング
+    const byAccount = {};
+    for (const m of data.matched) {
+      if (!byAccount[m.account_name]) byAccount[m.account_name] = [];
+      byAccount[m.account_name].push(m);
+    }
+    for (const [accountName, props] of Object.entries(byAccount)) {
+      html += `<div style="font-size:.78rem;color:var(--text-dim);font-family:var(--mono);margin:.75rem 0 .35rem;padding-bottom:.3rem;border-bottom:1px solid var(--border)">${accountName}</div>`;
+      for (const m of props) {
+        const propIdNum = m.property_id.replace('properties/', '');
+        html += `<div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--green);border-radius:6px;padding:.85rem 1.25rem;margin-bottom:.6rem">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
+            <div>
+              <div style="font-weight:600;font-size:.93rem;margin-bottom:.2rem">${m.property_name}</div>
+              <div style="display:flex;align-items:center;gap:.75rem;font-size:.78rem;color:var(--text-dim);font-family:var(--mono)">
+                <span style="color:var(--accent)">${m.measurement_id}</span>
+                <span>${m.stream_name}</span>
+                ${m.default_uri ? '<span>' + m.default_uri + '</span>' : ''}
+              </div>
+              <div style="font-size:.75rem;color:var(--text-dim);margin-top:.2rem">GTM: ${m.gtm_tag_names.join(', ')}</div>
+            </div>
+            <button onclick="runDetailCheck('${m.property_id}', '${m.property_name}', this)"
+              style="background:var(--accent);border:none;color:#fff;font-family:var(--mono);font-size:.75rem;padding:.4rem .85rem;border-radius:4px;cursor:pointer;font-weight:600;white-space:nowrap;flex-shrink:0">
+              Check GTM tags
+            </button>
+          </div>
+          <div class="detail-result" id="detail-${propIdNum}" style="display:none;margin-top:.75rem;border-top:1px solid var(--border);padding-top:.75rem"></div>
+        </div>`;
+      }
+    }
+  }
+
+  // 権限なし
+  html += `<div style="font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--text-dim);margin:1.5rem 0 .6rem;display:flex;align-items:center;gap:.5rem">
+    <span style="width:8px;height:8px;border-radius:50%;background:var(--text-dim);display:inline-block"></span>
+    No access / unknown (${data.unmatched.length})
+  </div>`;
+
+  if (data.unmatched.length === 0) {
+    html += '<div style="color:var(--text-dim);font-size:.85rem;padding:.5rem 0">All GTM measurement IDs are accounted for.</div>';
+  } else {
+    for (const u of data.unmatched) {
+      html += `<div style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:.7rem 1.25rem;margin-bottom:.5rem;display:flex;align-items:center;gap:1rem;opacity:.7">
+        <span style="font-family:var(--mono);font-size:.82rem;color:var(--text-dim)">${u.measurement_id}</span>
+        <span style="font-size:.8rem;color:var(--text-dim)">GTM: ${u.gtm_tag_names.join(', ')}</span>
+      </div>`;
+    }
+  }
+
+  div.innerHTML = html;
+}
+
+async function runDetailCheck(propertyId, propertyName, btn) {
+  const propIdNum = propertyId.replace('properties/', '');
+  const resultDiv = document.getElementById('detail-' + propIdNum);
+  resultDiv.style.display = 'block';
+  resultDiv.innerHTML = '<p style="color:var(--text-dim);font-size:.83rem">&#9203; Checking...</p>';
+  btn.disabled = true; btn.textContent = 'Checking...';
+
+  try {
+    const r = await fetch('/audit/{{ account_id }}/{{ container_id }}/ga-check?property_id=' + encodeURIComponent(propertyId));
+    const data = await r.json();
+    if (data.error) { resultDiv.innerHTML = '<p style="color:var(--red)">' + data.error + '</p>'; return; }
+
+    const issues = data.stream_results.filter(r => r.issues.length > 0);
+    const ok = data.stream_results.filter(r => r.issues.length === 0);
+    let html = '';
+
+    if (issues.length) {
+      html += '<div style="font-size:.75rem;font-weight:600;color:var(--red);margin-bottom:.4rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Issues</div>';
+      for (const s of issues) {
+        html += `<div style="background:var(--surface2);border:1px solid rgba(247,79,79,.3);border-radius:4px;padding:.5rem .85rem;margin-bottom:.4rem;font-size:.82rem">
+          ${s.issues.map(i => '<span style="color:var(--red)">&#9888; ' + i + '</span>').join('<br>')}
+        </div>`;
+      }
+    }
+    if (ok.length) {
+      html += '<div style="font-size:.75rem;font-weight:600;color:var(--green);margin:.6rem 0 .4rem;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">OK</div>';
+      for (const s of ok) {
+        html += `<div style="background:var(--surface2);border:1px solid rgba(34,212,122,.2);border-radius:4px;padding:.5rem .85rem;margin-bottom:.35rem;font-size:.82rem;display:flex;gap:.75rem;align-items:center">
+          <span style="color:var(--green)">&#10003;</span>
+          <span style="font-family:var(--mono);color:var(--accent)">${s.measurement_id}</span>
+          <span style="color:var(--text-dim)">${s.stream_name}</span>
+          ${s.default_uri ? '<span style="color:var(--text-dim)">' + s.default_uri + '</span>' : ''}
+          ${s.gtm_tag_names.length ? '<span style="margin-left:auto;color:var(--text-dim);font-family:var(--mono);font-size:.75rem">' + s.gtm_tag_names[0] + '</span>' : ''}
+        </div>`;
+      }
+    }
+
+    resultDiv.innerHTML = html;
+    btn.textContent = 'Re-check';
+    btn.disabled = false;
+
+    // タブバッジ更新
+    const totalIssues = document.querySelectorAll('.detail-result [style*="color:var(--red)"]').length;
+    const badge = document.getElementById('ga-issue-count');
+    if (badge && issues.length > 0) { badge.style.display = ''; badge.textContent = issues.length; }
+  } catch(e) {
+    resultDiv.innerHTML = '<p style="color:var(--red)">Failed: ' + e.message + '</p>';
+    btn.disabled = false; btn.textContent = 'Check GTM tags';
+  }
+}
+{% endif %}
 </script>
 {% endblock %}
