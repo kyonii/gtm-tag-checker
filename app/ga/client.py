@@ -9,14 +9,16 @@ _ADMIN_BASE = "https://analyticsadmin.googleapis.com/v1beta"
 class GAStream:
     stream_id: str
     display_name: str
-    measurement_id: str   # G-XXXXXXXX
-    default_uri: str      # 計測対象URL
+    measurement_id: str
+    default_uri: str
 
 
 @dataclass
 class GAProperty:
-    property_id: str      # properties/123456
+    property_id: str
     display_name: str
+    account_id: str = ""
+    account_name: str = ""
     streams: list[GAStream] = field(default_factory=list)
 
 
@@ -35,28 +37,29 @@ class GAClient:
             return r.json()
 
     async def list_properties(self) -> list[GAProperty]:
-        """アクセス可能なGA4プロパティ一覧を取得"""
-        # accountsummariesからプロパティを一覧取得
         data = await self._get(f"{_ADMIN_BASE}/accountSummaries?pageSize=200")
         properties: list[GAProperty] = []
         for account in data.get("accountSummaries", []):
+            account_id = account.get("account", "")
+            account_name = account.get("displayName", account_id)
             for prop in account.get("propertySummaries", []):
                 prop_id = prop.get("property", "")
                 properties.append(GAProperty(
                     property_id=prop_id,
                     display_name=prop.get("displayName", prop_id),
+                    account_id=account_id,
+                    account_name=account_name,
                 ))
         return properties
 
     async def list_streams(self, property_id: str) -> list[GAStream]:
-        """プロパティのデータストリーム一覧を取得"""
         data = await self._get(f"{_ADMIN_BASE}/{property_id}/dataStreams?pageSize=50")
         streams: list[GAStream] = []
         for s in data.get("dataStreams", []):
             web = s.get("webStreamData", {})
             measurement_id = web.get("measurementId", "")
             if not measurement_id:
-                continue  # webストリーム以外はスキップ
+                continue
             streams.append(GAStream(
                 stream_id=s.get("name", ""),
                 display_name=s.get("displayName", ""),
@@ -66,7 +69,6 @@ class GAClient:
         return streams
 
     async def get_property_with_streams(self, property_id: str) -> GAProperty:
-        """プロパティとそのストリームを取得"""
         data = await self._get(f"{_ADMIN_BASE}/{property_id}")
         prop = GAProperty(
             property_id=property_id,
