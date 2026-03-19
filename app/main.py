@@ -257,22 +257,27 @@ async def ga_page_check(
             issue_count = sum(1 for r, issues in done_results if issues and r.is_ok)
             error_count = sum(1 for r, issues in done_results if not r.is_ok)
 
-            final_results = [
+            issue_results = [
                 {
                     "url": r.url,
                     "status": r.status,
                     "gtm_ids": r.gtm_container_ids,
-                    
                     "issues": issues,
                     "error": r.error,
                 }
                 for r, issues in done_results
                 if issues or r.error
             ]
+            ok_results = [
+                {"url": r.url, "status": r.status}
+                for r, issues in done_results
+                if not issues and r.is_ok
+            ]
 
             yield sse({
                 "type": "done",
-                "results": final_results,
+                "results": issue_results,
+                "all_ok": ok_results,
                 "summary": {"total": total, "ok": ok_count, "issues": issue_count, "errors": error_count},
             })
 
