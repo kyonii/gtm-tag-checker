@@ -83,6 +83,38 @@
   .outlier-list li{font-family:var(--mono);font-size:.78rem;background:rgba(247,195,79,.06);border:1px solid rgba(247,195,79,.2);border-radius:3px;padding:.3rem .7rem;display:flex;align-items:center;gap:.6rem}
   .rename-arrow{color:var(--text-dim);font-size:.8rem;flex-shrink:0}
   .rename-suggestion{color:var(--green);font-weight:600}
+
+/* ── GTM Check Result Tabs ── */
+.page-tab-bar { display:flex; gap:6px; margin:12px 0 0; }
+.page-tab-btn {
+  display:flex; align-items:center; gap:6px;
+  padding:6px 14px; border-radius:6px; border:1px solid var(--border);
+  background:var(--bg2); color:var(--fg2); font-size:12px; font-weight:600;
+  cursor:pointer; transition:all .15s;
+}
+.page-tab-btn .ptb-count {
+  background:rgba(255,255,255,.12); border-radius:10px;
+  padding:1px 7px; font-size:11px;
+}
+.page-tab-btn.active { border-color:var(--accent); color:var(--accent); background:rgba(var(--accent-rgb),.1); }
+.page-tab-btn:hover:not(.active) { border-color:var(--fg2); }
+.page-tab-content { margin-top:8px; }
+.gtm-result-row {
+  display:grid; grid-template-columns:20px 1fr auto;
+  align-items:center; gap:8px;
+  padding:6px 10px; border-radius:5px; margin-bottom:4px;
+  font-size:12px; background:var(--bg2); border:1px solid var(--border);
+}
+.gtm-result-row.ok    { border-color:rgba(34,212,122,.25); }
+.gtm-result-row.issue { border-color:rgba(255,193,7,.25); }
+.gtm-result-row.error { border-color:rgba(255,80,80,.25); }
+.gtm-result-icon { font-weight:700; text-align:center; }
+.gtm-result-row.ok    .gtm-result-icon { color:var(--green); }
+.gtm-result-row.issue .gtm-result-icon { color:var(--yellow,#ffc107); }
+.gtm-result-row.error .gtm-result-icon { color:var(--red,#ff5050); }
+.gtm-result-url { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--fg); }
+.gtm-result-msg { color:var(--fg2); font-size:11px; white-space:nowrap; }
+.gtm-result-empty { color:var(--fg2); font-size:12px; padding:8px 10px; }
 </style>
 {% endblock %}
 {% block content %}
@@ -309,7 +341,7 @@ function switchTab(name, btn) {
 var _hasGAProperties = {{ "true" if ga_properties else "false" }};
 if (_hasGAProperties) {
 
-// SSEをfetch streamで受け取るヘルパー
+// SSEãfetch streamã§åãåããã«ãã¼
 var readSSEStream = async function(url, onMessage) {
   const res = await fetch(url, { credentials: 'same-origin' });
   const reader = res.body.getReader();
@@ -371,7 +403,7 @@ var renderGAOverview = function(data) {
 
   html += `<div style="font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:.6rem;display:flex;align-items:center;gap:.5rem">
     <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span>
-    Access granted — matched with GTM (${data.matched.length})
+    Access granted â matched with GTM (${data.matched.length})
   </div>`;
 
   if (data.matched.length === 0) {
@@ -468,7 +500,7 @@ var runPageCheck = async function(propertyId, measurementId, defaultUri, safeId,
         if (barEl) barEl.style.width = data.percent + '%';
         if (labelEl) labelEl.textContent = data.completed + ' / ' + data.total + ' pages (' + data.percent + '%)';
 
-        // 問題のある結果をリアルタイムで追加表示（もし結果が来ていれば）
+        // åé¡ã®ããçµæããªã¢ã«ã¿ã¤ã ã§è¿½å è¡¨ç¤ºï¼ããçµæãæ¥ã¦ããã°ï¼
         if (data.latest_issue && resultsEl) {
           const r = data.latest_issue;
           const col = r.error ? 'var(--red)' : 'var(--yellow)';
@@ -476,44 +508,40 @@ var runPageCheck = async function(propertyId, measurementId, defaultUri, safeId,
           const el = document.createElement('div');
           el.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-left:2px solid ' + col + ';border-radius:4px;padding:.5rem .85rem;margin-bottom:.4rem';
           el.innerHTML = `<div style="font-family:var(--mono);font-size:.78rem;color:var(--accent);margin-bottom:.2rem">${r.url}</div>
-            ${issues.map(i => '<div style="font-size:.8rem;color:' + col + '">⚠ ' + i + '</div>').join('')}
+            ${issues.map(i => '<div style="font-size:.8rem;color:' + col + '">â  ' + i + '</div>').join('')}
             ${r.gtm_ids && r.gtm_ids.length ? '<div style="font-size:.73rem;color:var(--text-dim);margin-top:.2rem;font-family:var(--mono)">Found: ' + r.gtm_ids.join(', ') + '</div>' : ''}`;
           resultsEl.appendChild(el);
         }
       } else if (data.type === 'done') {
         btn.disabled = false; btn.textContent = 'Re-check';
-        const s = data.summary;
-        if (barEl) { barEl.style.width = '100%'; barEl.style.background = 'var(--green)'; }
-        if (statusEl) statusEl.textContent = 'Done.';
-        if (labelEl) labelEl.textContent = '';
+        const results = data.results || [];
+        const okItems    = results.filter(r => r.status === 'ok');
+        const issueItems = results.filter(r => r.status === 'issue' || r.status === 'missing');
+        const errorItems = results.filter(r => r.status === 'error');
 
-        const summary = `<div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-bottom:.75rem">
-          <span style="font-size:.8rem;padding:.25rem .6rem;border-radius:3px;background:rgba(34,212,122,.12);color:var(--green);border:1px solid rgba(34,212,122,.3);font-family:var(--mono)">✓ ${s.ok} OK</span>
-          ${s.issues > 0 ? '<span style="font-size:.8rem;padding:.25rem .6rem;border-radius:3px;background:rgba(247,195,79,.12);color:var(--yellow);border:1px solid rgba(247,195,79,.3);font-family:var(--mono)">⚠ ' + s.issues + ' issues</span>' : ''}
-          ${s.errors > 0 ? '<span style="font-size:.8rem;padding:.25rem .6rem;border-radius:3px;background:rgba(247,79,79,.12);color:var(--red);border:1px solid rgba(247,79,79,.3);font-family:var(--mono)">✕ ' + s.errors + ' errors</span>' : ''}
-          <span style="font-size:.78rem;color:var(--text-dim);padding:.25rem 0">${s.total} pages total</span>
-        </div>`;
+        const renderRows = (items) => items.map(r => {
+          const icon = r.status === 'ok' ? '✓' : r.status === 'error' ? '✗' : '⚠';
+          const cls  = r.status === 'ok' ? 'ok' : r.status === 'error' ? 'error' : 'issue';
+          return `<div class="gtm-result-row ${cls}"><span class="gtm-result-icon">${icon}</span><span class="gtm-result-url">${r.url}</span><span class="gtm-result-msg">${r.message || r.gtm_id || ''}</span></div>`;
+        }).join('') || '<div class="gtm-result-empty">None</div>';
+
+        const tabHtml = `<div class="page-tab-bar" id="page-tab-bar-${safeId}">
+          <button class="page-tab-btn active" id="tab-btn-ok-${safeId}" onclick="switchPageTab('${safeId}','ok')">
+            <span class="ptb-icon">✓</span> OK <span class="ptb-count">${okItems.length}</span>
+          </button>
+          <button class="page-tab-btn" id="tab-btn-issues-${safeId}" onclick="switchPageTab('${safeId}','issues')">
+            <span class="ptb-icon">⚠</span> Issues <span class="ptb-count">${issueItems.length}</span>
+          </button>
+          <button class="page-tab-btn" id="tab-btn-errors-${safeId}" onclick="switchPageTab('${safeId}','errors')">
+            <span class="ptb-icon">✗</span> Errors <span class="ptb-count">${errorItems.length}</span>
+          </button>
+        </div>
+        <div id="tab-ok-${safeId}"     class="page-tab-content">${renderRows(okItems)}</div>
+        <div id="tab-issues-${safeId}" class="page-tab-content" style="display:none">${renderRows(issueItems)}</div>
+        <div id="tab-errors-${safeId}" class="page-tab-content" style="display:none">${renderRows(errorItems)}</div>`;
 
         if (resultsEl) {
-          if (data.results.length === 0 && resultsEl.children.length === 0) {
-            resultsEl.innerHTML = summary + '<div style="font-size:.83rem;color:var(--green)">✓ All pages have GTM tag correctly installed.</div>';
-          } else {
-            resultsEl.insertAdjacentHTML('afterbegin', summary);
-            // まだ表示されていない残りの問題を追加
-            for (const r of data.results) {
-              const alreadyShown = resultsEl.querySelector('[data-url="' + r.url + '"]');
-              if (!alreadyShown) {
-                const col = r.error ? 'var(--red)' : 'var(--yellow)';
-                const issues = r.error ? [r.error] : r.issues;
-                const el = document.createElement('div');
-                el.dataset.url = r.url;
-                el.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-left:2px solid ' + col + ';border-radius:4px;padding:.5rem .85rem;margin-bottom:.4rem';
-                el.innerHTML = `<div style="font-family:var(--mono);font-size:.78rem;color:var(--accent);margin-bottom:.2rem">${r.url}</div>
-                  ${issues.map(i => '<div style="font-size:.8rem;color:' + col + '">⚠ ' + i + '</div>').join('')}`;
-                resultsEl.appendChild(el);
-              }
-            }
-          }
+          resultsEl.innerHTML = tabHtml;
         }
       } else if (data.type === 'error') {
         btn.disabled = false; btn.textContent = 'Check GTM tags';
