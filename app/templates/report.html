@@ -84,7 +84,7 @@
   .rename-arrow{color:var(--text-dim);font-size:.8rem;flex-shrink:0}
   .rename-suggestion{color:var(--green);font-weight:600}
 
-/* ââ GTM Check Result Tabs ââ */
+/* Ã¢ÂÂÃ¢ÂÂ GTM Check Result Tabs Ã¢ÂÂÃ¢ÂÂ */
 .page-tab-bar { display:flex; gap:6px; margin:12px 0 0; }
 .page-tab-btn {
   display:flex; align-items:center; gap:6px;
@@ -341,7 +341,7 @@ function switchTab(name, btn) {
 var _hasGAProperties = {{ "true" if ga_properties else "false" }};
 if (_hasGAProperties) {
 
-// SSEÃ£ÂÂfetch streamÃ£ÂÂ§Ã¥ÂÂÃ£ÂÂÃ¥ÂÂÃ£ÂÂÃ£ÂÂÃ£ÂÂ«Ã£ÂÂÃ£ÂÂ¼
+// SSEÃÂ£ÃÂÃÂfetch streamÃÂ£ÃÂÃÂ§ÃÂ¥ÃÂÃÂÃÂ£ÃÂÃÂÃÂ¥ÃÂÃÂÃÂ£ÃÂÃÂÃÂ£ÃÂÃÂÃÂ£ÃÂÃÂ«ÃÂ£ÃÂÃÂÃÂ£ÃÂÃÂ¼
 var readSSEStream = async function(url, onMessage) {
   const res = await fetch(url, { credentials: 'same-origin' });
   const reader = res.body.getReader();
@@ -403,7 +403,7 @@ var renderGAOverview = function(data) {
 
   html += `<div style="font-family:var(--mono);font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.1em;color:var(--green);margin-bottom:.6rem;display:flex;align-items:center;gap:.5rem">
     <span style="width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block"></span>
-    Access granted Ã¢ÂÂ matched with GTM (${data.matched.length})
+    Access granted ÃÂ¢ÃÂÃÂ matched with GTM (${data.matched.length})
   </div>`;
 
   if (data.matched.length === 0) {
@@ -500,7 +500,7 @@ var runPageCheck = async function(propertyId, measurementId, defaultUri, safeId,
         if (barEl) barEl.style.width = data.percent + '%';
         if (labelEl) labelEl.textContent = data.completed + ' / ' + data.total + ' pages (' + data.percent + '%)';
 
-        // Ã¥ÂÂÃ©Â¡ÂÃ£ÂÂ®Ã£ÂÂÃ£ÂÂÃ§ÂµÂÃ¦ÂÂÃ£ÂÂÃ£ÂÂªÃ£ÂÂ¢Ã£ÂÂ«Ã£ÂÂ¿Ã£ÂÂ¤Ã£ÂÂ Ã£ÂÂ§Ã¨Â¿Â½Ã¥ÂÂ Ã¨Â¡Â¨Ã§Â¤ÂºÃ¯Â¼ÂÃ£ÂÂÃ£ÂÂÃ§ÂµÂÃ¦ÂÂÃ£ÂÂÃ¦ÂÂ¥Ã£ÂÂ¦Ã£ÂÂÃ£ÂÂÃ£ÂÂ°Ã¯Â¼Â
+        // ÃÂ¥ÃÂÃÂÃÂ©ÃÂ¡ÃÂÃÂ£ÃÂÃÂ®ÃÂ£ÃÂÃÂÃÂ£ÃÂÃÂÃÂ§ÃÂµÃÂÃÂ¦ÃÂÃÂÃÂ£ÃÂÃÂÃÂ£ÃÂÃÂªÃÂ£ÃÂÃÂ¢ÃÂ£ÃÂÃÂ«ÃÂ£ÃÂÃÂ¿ÃÂ£ÃÂÃÂ¤ÃÂ£ÃÂÃÂ ÃÂ£ÃÂÃÂ§ÃÂ¨ÃÂ¿ÃÂ½ÃÂ¥ÃÂÃÂ ÃÂ¨ÃÂ¡ÃÂ¨ÃÂ§ÃÂ¤ÃÂºÃÂ¯ÃÂ¼ÃÂÃÂ£ÃÂÃÂÃÂ£ÃÂÃÂÃÂ§ÃÂµÃÂÃÂ¦ÃÂÃÂÃÂ£ÃÂÃÂÃÂ¦ÃÂÃÂ¥ÃÂ£ÃÂÃÂ¦ÃÂ£ÃÂÃÂÃÂ£ÃÂÃÂÃÂ£ÃÂÃÂ°ÃÂ¯ÃÂ¼ÃÂ
         if (data.latest_issue && resultsEl) {
           const r = data.latest_issue;
           const col = r.error ? 'var(--red)' : 'var(--yellow)';
@@ -508,7 +508,7 @@ var runPageCheck = async function(propertyId, measurementId, defaultUri, safeId,
           const el = document.createElement('div');
           el.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-left:2px solid ' + col + ';border-radius:4px;padding:.5rem .85rem;margin-bottom:.4rem';
           el.innerHTML = `<div style="font-family:var(--mono);font-size:.78rem;color:var(--accent);margin-bottom:.2rem">${r.url}</div>
-            ${issues.map(i => '<div style="font-size:.8rem;color:' + col + '">Ã¢ÂÂ  ' + i + '</div>').join('')}
+            ${issues.map(i => '<div style="font-size:.8rem;color:' + col + '">ÃÂ¢ÃÂÃÂ  ' + i + '</div>').join('')}
             ${r.gtm_ids && r.gtm_ids.length ? '<div style="font-size:.73rem;color:var(--text-dim);margin-top:.2rem;font-family:var(--mono)">Found: ' + r.gtm_ids.join(', ') + '</div>' : ''}`;
           resultsEl.appendChild(el);
         }
@@ -517,37 +517,31 @@ var runPageCheck = async function(propertyId, measurementId, defaultUri, safeId,
         const okItems    = data.all_ok   || [];
         const issueItems = (data.results || []).filter(r => !r.error);
         const errorItems = (data.results || []).filter(r =>  r.error);
-        const summary    = data.summary  || {};
 
         const renderOkRow = (r) =>
           `<div class="gtm-result-row ok"><span class="gtm-result-icon">&#10003;</span><span class="gtm-result-url">${r.url}</span><span class="gtm-result-msg">HTTP ${r.status}</span></div>`;
-
         const renderIssueRow = (r) =>
           `<div class="gtm-result-row issue"><span class="gtm-result-icon">&#9651;</span><span class="gtm-result-url">${r.url}</span><span class="gtm-result-msg">${(r.issues||[]).join(', ')}</span></div>`;
-
         const renderErrorRow = (r) =>
           `<div class="gtm-result-row error"><span class="gtm-result-icon">&#10007;</span><span class="gtm-result-url">${r.url}</span><span class="gtm-result-msg">${r.error || 'Error'}</span></div>`;
-
         const renderList = (items, fn) => items.length ? items.map(fn).join('') : '<div class="gtm-result-empty">None</div>';
 
-        const tabHtml = `<div class="page-tab-bar" id="page-tab-bar-${safeId}">
-          <button class="page-tab-btn active" id="tab-btn-ok-${safeId}" onclick="switchPageTab('${safeId}','ok')">
-            <span class="ptb-icon">&#10003;</span> OK <span class="ptb-count">${okItems.length}</span>
+        const tabHtml = `<div class="page-tab-bar">
+          <button class="page-tab-btn active" id="${safeId}-tab-ok-btn" onclick="switchPageTab('${safeId}','ok')">
+            &#10003; OK <span class="ptb-count">${okItems.length}</span>
           </button>
-          <button class="page-tab-btn" id="tab-btn-issues-${safeId}" onclick="switchPageTab('${safeId}','issues')">
-            <span class="ptb-icon">&#9651;</span> Issues <span class="ptb-count">${issueItems.length}</span>
+          <button class="page-tab-btn" id="${safeId}-tab-issues-btn" onclick="switchPageTab('${safeId}','issues')">
+            &#9651; Issues <span class="ptb-count">${issueItems.length}</span>
           </button>
-          <button class="page-tab-btn" id="tab-btn-errors-${safeId}" onclick="switchPageTab('${safeId}','errors')">
-            <span class="ptb-icon">&#10007;</span> Errors <span class="ptb-count">${errorItems.length}</span>
+          <button class="page-tab-btn" id="${safeId}-tab-errors-btn" onclick="switchPageTab('${safeId}','errors')">
+            &#10007; Errors <span class="ptb-count">${errorItems.length}</span>
           </button>
         </div>
-        <div id="tab-ok-${safeId}"     class="page-tab-content">${renderList(okItems, renderOkRow)}</div>
-        <div id="tab-issues-${safeId}" class="page-tab-content" style="display:none">${renderList(issueItems, renderIssueRow)}</div>
-        <div id="tab-errors-${safeId}" class="page-tab-content" style="display:none">${renderList(errorItems, renderErrorRow)}`;
+        <div id="${safeId}-tab-ok-panel"     class="page-tab-content">${renderList(okItems, renderOkRow)}</div>
+        <div id="${safeId}-tab-issues-panel" class="page-tab-content" style="display:none">${renderList(issueItems, renderIssueRow)}</div>
+        <div id="${safeId}-tab-errors-panel" class="page-tab-content" style="display:none">${renderList(errorItems, renderErrorRow)}`;
 
-        if (resultsEl) {
-          resultsEl.innerHTML = tabHtml;
-        }
+        if (resultsEl) resultsEl.innerHTML = tabHtml;
       } else if (data.type === 'error') {
         btn.disabled = false; btn.textContent = 'Check GTM tags';
         if (statusEl) { statusEl.textContent = 'Error: ' + data.message; statusEl.style.color = 'var(--red)'; }
